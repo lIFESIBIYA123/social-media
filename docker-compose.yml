@@ -1,0 +1,23 @@
+services:
+  web:
+    build: .
+    command: python /code/manage.py runserver 0.0.0.0:8000
+    volumes:
+      - .:/code
+    ports:
+      - 8000:8000
+    depends_on:
+      - db
+    environment:
+      - "DJANGO_SECRET_KEY=django-insecure-jai1)h*e5up5qpb+^8!4s(5ny75%u$nj)9qj!9a=8tzgzh$$_lm"
+      #addeed a dollar sign so that the $ does not make docker to rasise the error
+      #- "DJANGO_DEBUG=True"
+  db:
+    image: postgres:18
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    environment:
+      - "POSTGRES_HOST_AUTH_METHOD=trust"
+
+volumes:
+  postgres_data:

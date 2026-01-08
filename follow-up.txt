@@ -1,0 +1,332 @@
+
+# ================================================================================
+# THIS ARE THE STEPS I USED AS SUMMARY
+==================================================================================
+
+========= 1. create the data base and connect it to django ========
+
+    DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql_psycopg2',
+        'NAME': 'coredb',
+        'USER': 'core',
+        'PASSWORD': 'Gershom@sibiya123',
+        'HOST': 'localhost',
+        'PORT': '5432',
+    }
+}
+
+========= 2. install an http request client ========
+    NB for APIs
+    use = insomnia
+    To download a version of Insomnia that suits your OS, go to the following page: https://
+    insomnia.rest/download.
+
+    __________________________________________________________
+    QUESTIONS TO ANSWER
+    __________________________________________________________
+        Questions
+        1. What is a REST API?
+        2. What is Django?
+        3. How to create a Django project?
+        4. What are migrations?
+        5. What is a virtual environment in Python?
+
+
+========= 3.Authentication and Authorization using JWTs ========
+
+    topics in this chapter:
+    • Understanding JWTs
+    • Organizing a project
+    • Creating a user model
+    • Writing the user registration feature
+    • Adding the login feature
+    • Refresh logic
+
+    JWT
+    stands for JSON Web Token. It’s one of the most used means of authentication in web applications 
+    but also helps with authorization and information exchanges.
+
+    Each time a user successfully logs in, a JWT is created and returned. The JWT will be represented as 
+    credentials used to access protected resources. The fact that it’s possible to store data in a JWT makes 
+    it vulnerable. That’s why you should specify an expiration time when creating a JWT.
+
+    we’ll be using JWTs in two ways. To make it simple, we’ll have two types of tokens:
+    • An access token: Used to access resources and handle authorization
+    • A refresh token: Used to retrieve a new access token
+
+    no user wants the login page to appear every 5 minutes.
+    That’s where a refresh token is useful. It’ll contain the essential information needed to verify the user 
+    and generate a new access token.
+
+    1. At the root of the project, run the following command:
+        django-admin startapp core
+
+            core/apps.py
+            from django.apps import AppConfig
+
+            class CoreConfig(AppConfig):
+                default_auto_field = 'django.db.models.BigAutoField'
+                name = 'core'
+                label = 'core'
+
+        Register the apps in the setting.py file of the project:
+
+    2. run the following command:c
+        cd core
+        django-admin startapp user
+
+
+    .3. file core/user/models.py
+
+                from django.db import models
+                import uuid
+                from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
+                from django.core.exceptions import ObjectDoesNotExist
+                from django.db import models
+                from django.http import Http404
+
+
+                class User(AbstractBaseUser, PermissionsMixin):
+                    public_id = models.UUIDField(db_index=True, unique=True, default=uuid.uuid4, editable=False)
+                    username = models.CharField(db_index=True, max_length=255, unique=True)
+                    first_name = models.CharField(max_length=255)
+                    last_name = models.CharField(max_length=255)
+                    email = models.EmailField(db_index=True, unique=True)
+                    is_active = models.BooleanField(default=True)
+                    is_superuser = models.BooleanField(default=False)
+                    created = models.DateTimeField(auto_noe=True)
+                    updated = models.DateTimeField(auto_now_add=True)
+
+
+                    USERNAME_FIELD = 'email'
+                    REQUIRED_FIELDS = ['username']
+
+                    objects = UserManager()
+
+                    def __str__(self):
+                        return f"{self.email}"
+
+                    @property
+                    def name(self):
+                        return f"{self.first_anme} {self.last_name}"
+
+
+
+
+                # Creating the user and superuser
+
+                class UserManager(BaseUserManager):
+                    def get_object_by_public_id(self, public_id):
+                        try:
+                            instance = self.get(public_id=public_id)
+                            return instance
+                        except (ObjectDoesNotExist, ValueError, TypeError):
+                            return Http404
+
+
+                    def create_user(self, username, email, password=None, ***args, **kwargs):
+                        """create and return a `user` with an email, phone number, username and password."""
+
+                        if username is None:
+                            raise TypeError('Users must have a username')
+
+                        if email is None:
+                            raise TypeError('User must have an email.')
+                        
+                        if password is None:
+                            raise TypeError('User must have a password.')
+
+                        user = self.model(username=username, email=self.normal(email), **kwargs)
+                        user.set_password(password)
+                        user.save(using=self._db)
+
+                        return user
+
+                    def create_supersuser(self, username, email, password, **kwargs):
+                        """Create and return a `User` with superuser (admin) permissions """
+
+                        if password is None:
+                            raise typeError('superuser must have a password')
+
+                        if email is None:
+                            raise TypeError('Superuser must have an email.')
+
+                        if username is None:
+                            raise TypeError('Superuser must have a username.')
+
+                        user = self.create_user(username, email, password, **kwargs)
+                        user.is_superuser = True
+                        user.is_staff = True
+                        user.save(using=self._db)
+
+                        return user
+
+    4. et’s rewrite the apps.py file of the user. It contains the app configs that Django will use to 
+        locate the application. Let’s also add a label for the application:
+
+            core/user/apps.py
+
+            from django.apps import AppConfig
+            class UserConfig(AppConfig):
+                default_auto_field = 'django.db.models.BigAutoField'
+                name = '.core.user'
+                label = 'core_user'
+
+
+    5. t’s register the application now in the INSTALLED_APPS setting
+
+                    ...
+            'core',
+            'core.user'
+            ]
+
+    6. We also need to tell Django to use this User model for the authentication user model. In the 
+        settings.py file, add the following line:
+
+        CoreRoot/settings.py
+        AUTH_USER_MODEL = 'core_user.User'
+        Great – we can now create the first migration for the user app:
+        python manage.py makemigrations
+
+        then run:
+
+        python manage.py migrate
+
+
+    7. writng User serializer, to handle complex data
+
+         7.1 A serializer allows us to convert complex Django complex data structures such as QuerySet or model 
+            instances into Python native objects that can be easily converted to JSON or XML format
+
+            Django Rest Framework (DRF) provides a 
+            serializers package you can use to write serializers and also validations when API calls are made 
+            to an endpoint using this serializer.
+
+            (a) pip install djangorestframework django-filter
+
+                    requirements.txt:
+
+                    Django==4.0.1
+                    psycopg2-binary==2.9.3
+                    djangorestframework==3.13.1
+                    django-filter==21.1
+
+            (b)  We are also adding django-filter for data filtering support. Let’s add rest_framework to 
+                    the INSTALLED_APPS setting:
+                    CoreRoot/settings.py
+                    INSTALLED_APPS = [
+                    ...
+                    'rest_framework',
+                    ]
+
+            (c) In the core/user directory, create a file called serializers.py. This file will contain the 
+                A serializer converts complex data types (like Django models) into JSON format for API responses, 
+                and validates/converts JSON back into Python objects for database operations. 
+                It's the bridge between your database models and API endpoints, handling data transformation
+                 and validation automatically.
+                
+                core/user/serializers.py
+                UserSerializer class:
+
+                from rest_framework import serializers
+                from core.models import User
+
+                class UserSerializer(serializers.ModelSerializer):
+                    id = serializers.UUIDField(source='public_id',
+                    read_only=True, format="hex")
+                    created = serializers.DateTimeField(read_only=True)
+                    updated = serializers.DateTimeField(read_only=True)
+
+                    class Meta: 
+                        model = User
+                        fields = ['id', 'username', 'first_name',
+                            'last_name', 'bio', 'avatar', 'email',
+                            'is_active', 'created', 'updated']
+                        read_only_fields = ['is_active']
+
+    8. Writing UserViewset
+        As we know, Django at its core is based on the Model-View-Template (MVT) architecture. The 
+        model communicates with the views (or controllers) and the template displays responses or redirects 
+        requests to the views
+
+        As we know, Django at its core is based on the Model-View-Template (MVT) architecture. The 
+        model communicates with the views (or controllers) and the template displays responses or redirects 
+        requests to the views
+
+        a viewset is simply a class-based view that can 
+        handle all the basic HTTP requests—GET, POST, PUT, DELETE, and PATCH—without hardcoding 
+        any CRUD logic here.
+
+        Let’s write the viewset. Inside the user directory, rename the view file viewsets.py and add 
+        the following content:
+        core/user/viewsets.py
+
+        from rest_framework.permissions import AllowAny
+        from rest_framework import viewsets
+        from core.user.serializers import UserSerializer
+        from core.user.models import User
+
+        class UserViewSet(viewsets.ModelViewSet):
+            http_method_names = ('patch', 'get')
+            permission_classes = (AllowAny,)
+            serializer_class = UserSerializer
+
+            # gets the list of all users
+            def get_queryset(self):
+                if self.request.user.is_superuser:
+                    return User.objects.all()
+                return User.objects.exclude(is_superuser=True)
+
+            # get one user
+            # This method is called when 
+            # a GET or PUT request is made on the /user/id/ endpoint, with id representing the ID of 
+            # the user.
+
+            def get_object(self):
+                obj = User.objects.get_object_by_public_id(self.kwargs['pk'])
+                self.check_object_permissions(self.request, obj)
+                return obj
+
+            # There we have the User viewset – but there is no endpoint yet to make it work. Well, let’s add a 
+            # router now.
+
+    9. Adding a router
+        Routers allow you to quickly declare all of the common routes for a given controller; the next code 
+        snippet shows a viewset to which we will be adding a router.
+        At the root of the apps project (core), create a file named routers.py.
+        And let’s add the code:
+
+        core/router
+
+        from rest_framework import routers
+        
+        from core.user.viewsets import UserViewSet
+
+        router = routers.SimpleRouter()
+
+        # ====================================
+        # USER ROUTES
+        # ====================================
+        router.register(r'user', UserViewSet, basename='user')
+
+        urlpatterns = [
+            *router.urls,
+        ]
+
+        9.1 add the router path in coreRoot/urls.py
+
+            rom django.contrib import admin
+            from django.urls import path, include
+            from core.routers import router
+
+            urlpatterns = [
+                path('admin/', admin.site.urls),
+                path('api/', include(router.urls)),
+            ]
+
+        9.2 making permissions so tht not can edit someone's data
+            change the permission on the permission_classes attribute in the 
+            UserViewSet class:
+            core/user/viewsets.py
+            replace AllowAny with IsAuthenticated 
