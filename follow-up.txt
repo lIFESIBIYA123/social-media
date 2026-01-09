@@ -48,7 +48,7 @@
     but also helps with authorization and information exchanges.
 
     Each time a user successfully logs in, a JWT is created and returned. The JWT will be represented as 
-    credentials used to access protected resources. The fact that it’s possible to store data in a JWT makes 
+        credentials used to access protected resources. The fact that it’s possible to store data in a JWT makes 
     it vulnerable. That’s why you should specify an expiration time when creating a JWT.
 
     we’ll be using JWTs in two ways. To make it simple, we’ll have two types of tokens:
@@ -330,3 +330,299 @@
             UserViewSet class:
             core/user/viewsets.py
             replace AllowAny with IsAuthenticated 
+
+    10. Writing the user registration feature
+
+        To make things simpler, if the registration of a user is successful, we will provide credentials, here 
+        JWTs, so the user won’t have to log in again to start a session – a win for user experience.
+        First, let’s install a package that will handle JWT authentication for us. 
+        The djangorestframeworksimplejwt package is a JWT authentication plugin for DRF:
+
+        pip install djangorestframework-simplejwt
+        The package covers the most common use case of JWT
+        register the app in INSTALLED_
+        APPS and specify DEFAULT_AUTHENTICATION_CLASSES in the REST_FRAMEWORK dict:
+
+        …
+        # external packages apps
+            'rest_framework',
+            'rest_framework_simplejwt',
+            'core',
+            'core.user'
+        ]
+        ...
+        REST_FRAMEWORK = {
+            'DEFAULT_AUTHENTICATION_CLASSES': (
+                'rest_framework_simplejwt.authentication
+                 .JWTAuthentication',
+            ),
+            'DEFAULT_FILTER_BACKENDS':
+                'django_filters.rest_framework.DjangoFilterBackend'],
+        }
+
+    create ne app called auth in the coer appear
+
+    cd core && django-admin startapp auth:
+        New-Item -Path "core/auth" -ItemType Directory -Force
+        python -m django startapp auth core/auth
+
+        core/auth/apps.py
+        rewrite apps.py | label = 'core_auth' name = 'core.auth'
+
+        coreRoot/settings.py installed apps add:
+        'core.auth' 
+        
+
+    Create a Python package called serializers and another one called viewsets. 
+    make sure that these new directories have an __init__.py file
+
+    Inside the serializers directory, create a file called register.py
+    core/auth/serializers/register.py
+
+    from rest_framework import serializers
+    from core.user.serializers import UserSerializer
+    from core.user.models import User
+
+
+    class RegisterSerializer(UserSerializer):
+        """
+            Registration serializer for requests and user creation
+        """
+
+        # making sure the password is at least 8 characters long and no longer
+        # than 128 and cant be  read by the user
+
+        password = serializers.CharFields(max_length=128, min_length=8, write_only=True, required=True)
+
+        class Meta:
+            model = User
+            # list of all the fields that can be included in a response
+            fields = ['id', 'bio', 'avatar', 'email', 'username', 'first_name',
+                        'last_name', 'password']
+
+        def create(self, validated_data):
+            # Use the `create_user` method we wrote earlier for the UserManger to create 
+            # a user.
+
+
+            return User.objects.create_user(**validated_data)
+
+            ==================================================================================
+
+
+        11. Next, we can add the viewset and register it in the register.py file:
+            core/auth/viewsets/register.py
+
+            from rest_framework.response import Response
+            from rest_framewor.viewsets import ViewSet
+            from rest_framework.permissions import AllowAny
+            from rest_framework import status
+            from rest_frameworksimplejwt.tokens import RefreshToken
+            from core.auth.serializers import RegisterSerializer
+
+            class RegisterViewSet(ViewSet):
+                serializer_class = RegisterSerializer
+                permission_classes = (AllowAny,)
+                http_method_names = ['post']
+
+                def create(self, request, *args, **kwargs):
+                    serializer = self.serializer_class(data=request.data)
+                    serializer.is_valid(raise_exception=True)
+                    user = serializer.save()
+                    refresh = RefreshToken.for_user(user)
+                    res = {
+                        "refresh": str(refresh),
+                        "access": str(refresh.access_token),
+                    }
+
+                    return Response ({
+                        "user": serializer.data,
+                        "refresh": res["refresh"],
+                        "token": res["access"]
+                    }, status=status.HTTP_201_CREATED)
+
+    ==============================================================================================
+
+        we are using attributes from the ViewSet class. We are also 
+        rewriting the create method to add access and refresh tokens in the body of the response. The 
+        djangorestframework-simplejwt package provides utilities we can use to directly generate 
+        tokens. That’s what RefreshToken.for_user(user) does.
+
+
+        12. final step – let’s register the viewset in the routers.py file:
+
+            CORE/ROUTER.PY
+
+            router.register(r'auth/register', RegisterViewSet, basename='auth-register')
+            
+    ========================================================================================
+        NB dont forget to inport these in __init__.py
+            from .register import RegisterViewSet
+
+        Great! Let’s test the new endpoint with Insomnia. In the collection of requests for this project, create 
+        a new POST request. The URL will be as follows: localhost:8000/api/auth/register/.
+        As a body for the request, you can pass the following:
+        {
+        "username": "mouse21",
+        "first_name": "Mickey",
+        "last_name": "Mouse",
+        "password": "12345678",
+        "email": "mouse@yopmail.com"
+        }
+
+================================================================================
+===============================================================================
+    13. adding the login feature
+
+        The login feature will require the email or the username with the password. Using the 
+        djangorestframework-simplejwt package, which provides a serializer called 
+        TokenObtainPairSerializer, we’ll write a serializer to check for user authentication but also 
+        return a response containing access and refresh tokens. For this, we will rewrite the validate method 
+        from the TokenObtainPairSerializer class. Inside the core/auth/serializers
+        directory, create a new file called login.py (this file will contain LoginSerializer, a subclass 
+        of TokenObtainPairSerializer):
+
+        core/auth/serializers/login.py
+
+        from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+        from rest_framework_simplejwt.settings import api_settings
+        from django.contrib.auth.models import update_last_login
+        from core.user.serializers import UserSerializer
+
+        class LoginSerializer(TokenObtainPairSerializer):
+            """
+                Login serializer for requests and user authentication
+            """
+
+            def validate(self, attrs):
+                data = super().validate(attrs)
+
+                refresh = self.get_token(self.user)
+
+                data['user'] = UserSerializer(self.user).data
+                data['refresh'] = str(refresh)
+                data['access'] = str(refresh.access_tpken)
+
+                if api_settings.UPDATE_LAST_LOGIN:
+                    update_last_login(None, self.user)
+
+                return data
+
+        ==========================================================================================
+        That’s why super is helpful here. It’s a built-in method in Python that returns 
+        a temporary object that can be used to access the class methods of the base class.
+        ==========================================================================================
+
+        core/auth/serializers/__init__.py
+
+        code:
+            from .register import RegisterSerializer
+            from .login import LoginSerializer
+
+        ==========================================================================================
+
+        14. The next step is to add the viewset. We’ll call this viewset LoginViewset. As we are not directly 
+            teracting with a model here, we’ll just be using the viewsets.ViewSet class:
+
+            core/auth/viewsets/login.py
+
+        code:
+            from rest_framework.response import Response
+            from rest_framework.viewsets import ViewSet
+            from rest_framework.permissions import AllowAny
+            from rest_framework import status
+            from rest_framework_simplejwt.exceptions import TokenError, InvalidToken    
+            from core.auth.serializers import LoginSerializer
+
+            class LoginViewSet(ViewSet):
+                serializer_class = LoginSerializer
+                permission_classes = (AllowAny,)
+                http_method_names = ['post']
+
+                def create(self, request, *args, **kwargs):
+                    serializer = self.serializer_class(data=request.data)
+                    try:
+                        serializer.is_valid(raise_exception=True)
+
+                    except TokenError as e:
+                        raise InvalidToken(e.args[0])
+
+                    return Response(serializer.validated_data, status=status.HTTP_200_OK)
+
+            =================================================================================
+
+         14.   Add the viewset to the __init__.py file of the viewsets directory:
+         code:
+            from .register import RegisterViewSet
+            from .login import LoginViewSet
+        ======================================================================================
+
+        We can now import it and register it in the routers.py file:
+        core/routers.py
+        code:
+            router.register(r'auth/login', LoginViewSet, basename='auth-login')
+            
+    =========================================================================================
+
+        14. Refresh logic
+        In auth/viewsets, add a new file called refresh.py:
+        core/auth/viewsets/refresh.py
+
+        code:
+            from rest_framework.response import Response
+            from rest_framework_simplejwt.views import TokenRefreshView
+            from rest_framework.permissions import AllowAny
+            from rest_framework import status
+            from rest_framework import viewsets
+            from rest_framework_simplejwt.exceptions import TokenBackendError, InvalidToken
+
+            class RefreshViewSet(viewsets.ViewSet, TokenRefreshView):
+                permission_casses = (AllowAny,)
+                http_method_names = ['post']
+
+                def create(self, request, *args, **kwargs):
+                    serializer = self.get_serializer(data=request.data)
+
+                    try:
+                        serializer.is_valid(raise_exxception=True)
+
+                    except TokenError as e:
+                        raise InvalidToken(e.args[0])
+
+                    return Response(serializer.validated_data, status=status.HTTP_200_OK)
+
+    ===========================================================================================
+    Now add the class in the __init__.py file.
+    from .register import RegisterViewSet
+    from .login import LoginViewSet
+    from .refresh import RefreshViewSet
+    
+    +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+    And now register it in the routers.py file
+    core/routers.py
+    code:
+        from core.auth.viewsets import RegisterViewSet,
+        LoginViewSet, RefreshViewSet
+        ...
+        router.register(r'auth/refresh', RefreshViewSet,
+        basename='auth-refresh')
+----------------------------------------------------------------------------------------------------------
+Summary
+In this chapter, we learned how to write an authentication system based on JWT for a Django application 
+using DRF and djangorestframework-simplejwt. We also learned how to extend classes 
+and rewrite the functions.
+In the next chapter, we’ll add the posts feature. Our users will be able to create a post that can be 
+viewed and liked by other users.
+Questions
+1. What is a JWT?
+2. What is Django Rest Framework?
+3. What is a model?
+4. What is a serializer?
+5. What is a viewset?
+6. What is a router?
+7. What is the usage of a refresh token?
+
+_________________________________________________________________________________________________________________________________________________________________
+
+_________________________________________________________________________________________________________________________________________________________________
