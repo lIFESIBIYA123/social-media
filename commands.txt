@@ -1,0 +1,25 @@
+
+
+creating django app
+python -m django startapp post core/post
+
+# Create migrations
+python manage.py makemigrations
+
+# Apply migrations
+python manage.py migrate
+
+# Create superuser
+python manage.py createsuperuser
+
+# Run development server
+python manage.py runserver
+
+# Create new app
+python manage.py startapp appname
+
+# Open Django shell
+python manage.py shell
+
+# Collect static files
+python manage.py collectstatic

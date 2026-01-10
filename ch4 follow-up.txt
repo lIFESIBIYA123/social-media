@@ -1,0 +1,206 @@
+========================================================================
+
+4 adding comments to social media Posts
+
+========================================================================
+
+structurre of the comments":
+1. public_id: starting
+2. body: starting
+3. author: ForeignKey(fk)
+4. post: fk
+5. edited: boolean
+6. created: DateTime
+7. updated: datetime.
+
+Adding the Comment model
+core/comment/models.py
+code:
+    from django.db import models
+    from core.abstract.models import AbstractModel, AbstractManager
+
+    class CommentManager(AbstractManager):
+        pass
+
+    class Comment(AbstractModel):
+        post = models.ForeignKey("core_post.Post", on_delete=models.PROTECT)
+        author = models.ForeignKey("core_user.User", on_delete=models.PROTECT)  # Changed here
+        
+        body = models.TextField()
+        edited = models.BooleanField(default=False)
+        
+        objects = CommentManager()
+        
+        def __str__(self):
+            return self.author.name
+
+============================================================================
+Writing the comment serializer
+
+The comment serializer will help with validation and content creation. In the comment application, 
+create a file named serializers.py. We’ll write CommentSerializer in this file.
+
+____________________________________________________________________________
+
+core/comment/serializers.py
+code:
+    from rest_framework import serializers
+    from rest_framework.exceptions import ValidationError
+
+    from core.abstract.serializers import AbstractSerializer
+    from core.user.models import User
+    from core.user.serializers import UserSerializer
+    from core.comment.models import Comment
+    from core.post.models import Post
+
+
+    class CommentSerializer(AbstractSerializer):
+        author = serializers.SlugRelatedField(queryset=User.objects.all(), slug_field='public_id')
+        post = serializers.SlugRelatedField(queryset=Post.objects.all(), slug_field='public_id')
+
+        def validate_author(self, value):
+            if self.context["request"].user != value:
+                raise ValidationError("You can't create a post for another user.")
+            return value
+
+        def validate_post(self, value):
+            if self.instance:
+                return self.instance.post
+            return value
+
+        def update(self, instance, validated_data):
+            if not instance.edited:
+                validated_data['edited'] = True
+
+            instance = super().update(instance, validated_data)
+
+            return instance
+
+        def to_representation(self, instance):
+            rep = super().to_representation(instance)
+            author = User.objects.get_object_by_public_id(rep["author"])
+            rep["author"] = UserSerializer(author).data
+
+            return rep
+
+        class Meta:
+            model = Comment
+            # List of all the fields that can be included in a request or a response
+            fields = ['id', 'post', 'author', 'body', 'edited', 'created', 'updated']
+            read_only_fields = ["edited"]
+
+
+=============================================================================
+
+Nesting routes for the comment resource
+
+=============================================================================
+
+To create, update, or delete comments, we need to add ViewSet. In the comment directory, create a 
+file called viewsets.py. This file will contain the code for the CommentViewSet class. We won’t 
+be writing the whole code for this viewset because we need to get some clear ideas on the structure 
+of the endpoint
+_____________________________________________________________________________
+
+core/comment/viewsets.py
+code:
+    from django.http.response import Http404
+
+    from rest_framework.response import Response
+    from rest_framework import status
+
+    from core.abstract.viewsets import AbstractViewSet
+    from core.comment.models import Comment
+    from core.comment.serializers import CommentSerializer
+    from core.auth.permissions import UserPermission
+
+
+    class CommentViewSet(AbstractViewSet):
+        http_method_names = ('post', 'get', 'put', 'delete')
+        permission_classes = (UserPermission,)
+        serializer_class = CommentSerializer
+
+        def get_queryset(self):
+            if self.request.user.is_superuser:
+                return Comment.objects.all()
+
+            post_pk = self.kwargs['post_pk']
+            if post_pk is None:
+                return Http404
+            queryset = Comment.objects.filter(post__public_id=post_pk)
+
+            return queryset
+
+        def get_object(self):
+            obj = Comment.objects.get_object_by_public_id(self.kwargs['pk'])
+
+            self.check_object_permissions(self.request, obj)
+
+            return obj
+
+        def create(self, request, *args, **kwargs):
+            serializer = self.get_serializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            self.perform_create(serializer)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+==============================================================================
+------------------------------------------------------------------------------
+To make our comments nested in the post
+------------------------------------------------------------------------------
+the endpoint is nested, meaning that comment resources live under post resources.
+But how do we achieve this simply?
+The Django ecosystem has a library called drf-nested-routers, which helps write routers to 
+create nested resources in a Django project.
+
+You can install this package with the following command:
+pip install drf-nested-routers
+
+Great! No need to register it in the settings.py file, as it doesn’t come with signals, models, 
+or applications.
+_______________________________________________________________________________
+core/routers.py
+code:
+    router = routers.SimpleRouter()
+    router = routers.SimpleRouter() #nested router
+
+    #=====================================
+    # POSTS
+    #=====================================
+
+    router.register(r'post', PostViewSet, basename='post')
+    posts_router = router.NestedSimpleRouter(router, r'post', looup='post')
+
+________________________________________________________________________________
+
+The next step is to register the comment route on post_router:
+core/routers.py
+code:
+    from core.comment.viewsets import CommentViewSet
+    posts_router.register(r'comment', CommentViewSet, basename='post-comment')
+
+----------------------------------------------------------------------------------
+
+Make sure that delete is in the list of http_method_names of the CommentViewSet class:
+core/comment/
+code:
+    ...
+    class CommentViewSet(AbstractViewSet):
+    http_method_names = ('post', 'get', 'put',
+    'delete')
+    …
+
+    Once it’s done, let’s add more verifications in the core/auth/permissions file in the 
+    has_object_permission method of the UserPermission class:
+
+    core/auth/permissions
+
+    code:
+        def has_object_permission(self, request, view, obj):
+        ...
+        if view.basename in ["post-comment"]:
+            if request.method in ['DELETE']:
+                return bool(request.user.is_superuser or
+                    request.user in [obj.author,
+                    obj.post.author])
+            return bool(request.user and
+                    request.user.is_authenticated)

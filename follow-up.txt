@@ -626,3 +626,539 @@ Questions
 _________________________________________________________________________________________________________________________________________________________________
 
 _________________________________________________________________________________________________________________________________________________________________
+
+
+==============================================================================================================
+3. SOCIAL MEDIA POST MANAGEMENT
+==============================================================================================================
+
+        3.1     Create post models, using abstraction
+
+            For the sake of the don’t repeat yourself (DRY) principle, we will use abstract model classes.
+            An abstract class can be considered a blueprint for other classes. It usually contains a set of methods 
+            or attributes that must be created within any child classes built from the abstract class.
+
+            core/abstract/models.py
+
+            code:
+                from django.db import models
+                import uuid
+                from django.core.exceptions import ObjectDoesNotExist
+                from django.http import Http404
+
+
+                class AbstractManager(models.Manager):
+                    def get_object_by_public_id(self, public_id):
+                        try:
+                            instance = self.get(public_id=public_id)
+                            return instance
+                        except (ObjectDoesNotExist, ValueError, TypeError):
+                            raise Http404
+
+
+                class AbstractModel(models.Model):
+                    public_id = models.UUIDField(db_index=True, unique=True, default=uuid.uuid4, editable=False)
+                    created = models.DateTimeField(auto_now_add=True)
+                    updated = models.DateTimeField(auto_now=True)
+
+                    objects = AbstractManager()
+                    
+                    class Meta:
+                        abstract = True
+
+        ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+                    Now that we have this class, let’s make a quick refactor on the User model:
+                    First, let’s remove the get_object_by_public_id method to retrieve an object via public_id, 
+                    and let’s subclass UserManager:
+
+                    core/user/models.py
+                       new code:
+
+                            from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
+                            from django.db import models
+
+                            from core.abstract.models import AbstractModel, AbstractManager
+
+
+                            class UserManager(BaseUserManager, AbstractManager):
+
+                                def create_user(self, username, email, password=None, **kwargs):
+                                    """Create and return a `User` with an email, phone number, username and password."""
+                                    if username is None:
+                                        raise TypeError('Users must have a username.')
+                                    if email is None:
+                                        raise TypeError('Users must have an email.')
+                                    if password is None:
+                                        raise TypeError('User must have an email.')
+
+                                    user = self.model(username=username, email=self.normalize_email(email), **kwargs)
+                                    user.set_password(password)
+                                    user.save(using=self._db)
+
+                                    return user
+
+                                def create_superuser(self, username, email, password, **kwargs):
+                                    """
+                                    Create and return a `User` with superuser (admin) permissions.
+                                    """
+                                    if password is None:
+                                        raise TypeError('Superusers must have a password.')
+                                    if email is None:
+                                        raise TypeError('Superusers must have an email.')
+                                    if username is None:
+                                        raise TypeError('Superusers must have an username.')
+
+                                    user = self.create_user(username, email, password, **kwargs)
+                                    user.is_superuser = True
+                                    user.is_staff = True
+                                    user.save(using=self._db)
+
+                                    return user
+
+
+                            class User(AbstractModel, AbstractBaseUser, PermissionsMixin):
+                                username = models.CharField(db_index=True, max_length=255, unique=True)
+                                first_name = models.CharField(max_length=255)
+                                last_name = models.CharField(max_length=255)
+
+                                email = models.EmailField(db_index=True, unique=True)
+                                is_active = models.BooleanField(default=True)
+                                is_superuser = models.BooleanField(default=False)
+
+                                bio = models.TextField(null=True)
+                                avatar = models.ImageField(null=True)
+
+                                posts_liked = models.ManyToManyField(
+                                    "core_post.Post",
+                                    related_name="liked_by"
+                                )
+
+                                USERNAME_FIELD = 'email'
+                                REQUIRED_FIELDS = ['username']
+
+                                objects = UserManager()
+
+                                def __str__(self):
+                                    return f"{self.email}"
+
+                                @property
+                                def name(self):
+                                    return f"{self.first_name} {self.last_name}"
+
+                                def like(self, post):
+                                    """Like `post` if it hasn't been done yet"""
+                                    return self.posts_liked.add(post)
+
+                                def remove_like(self, post):
+                                    """Remove a like from a `post`"""
+                                    return self.posts_liked.remove(post)
+
+                                def has_liked(self, post):
+                                    """Return True if the user has liked a `post`; else False"""
+                                    return self.posts_liked.filter(pk=post.pk).exists()
+                    +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+                        
+                        Writing the AbstractSerializer
+
+                        core/abstract/serializers.py
+
+                        code:
+                            from rest_framework import serializers
+
+                            class AbstractSerializer(serializers.ModelSerializer):
+                                id = serializers.UUIDField(source='public_id', read_only=True, format='hex')
+                                created = serializers.DateTimeField(read_only=True)
+                                updated = serializers.DateTimeField(read_only=True)
+
+                    +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+                            Writing the AbstractViewSet
+                            core/abstract/viewsets.py
+                            code:
+                                from rest_framework import viewsets
+                                from rest_framework import filters
+
+                                class AbstractViewSet(viewsets.ModelViewSet):
+                                    filter_backends = [filters.OrderingFilter]
+                                    ordering_fields = ['updated', 'created']
+                                    ordering = ['-updated',]
+                    ________________________________________________________________________________________
+                    As you can see, we have the following attributes:
+                    • filter_backends: This sets the default filter backend.
+                    • ordering_fields: This list contains the fields that can be used as ordering parameters 
+                    when making a request.
+                    • ordering: This will tell Django REST in which order to send many objects as a response. In 
+                    this case, all the responses will be ordered by the most recently updated.
+                    +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++=+++++
+                    The next step is to add the AbstractViewSet class to the code where ModelViewSets
+                    is actually called. Go to core/user/viewsets.py and subclass UserViewSet with the 
+                    AbstractViewSet class:
+
+                    core/user/viewsets.py
+                    …
+                    from core.abstract.viewsets import AbstractViewSet
+                    from core.user.serializers import UserSerializer
+                    from core.user.models import User
+                    class UserViewSet(AbstractViewSet):
+        ______________________________________________________________________________________
+
+
+                3.2    writting post model
+                        code:
+
+                from django.apps import AppConfig
+
+
+                class PostConfig(AppConfig):
+                    default_auto_field = 'django.db.models.BigAutoField'
+                    name = 'core.post'
+                    label = 'core_post'
+        ______________________________________________________________________________________
+
+            core/post/models.py
+            code: 
+                from django.db import models
+                from core.abstract.models import AbstractModel, AbstractManager
+
+                class PostManager(AbstractManager):
+                    pass
+
+                class Post(AbstractModel):
+                    author = models.ForeignKey(to="core_user.User", on_delete=models.CASCADE)
+                    body = models.TextField()
+                    edited = models.BooleanField(default=False)
+
+                    objects = PostManager()
+                    def __str__(self):
+                        return f"{self.author.name}"
+                    
+                    class Meta:
+                        db_table = "core.post"
+
+            ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+            Add the newly created application to the INSTALLED_APPS list:
+            CoreRoot/settings.py
+
+                …
+                'core.post'
+                …
+            create the migrations for the newly added application:
+            ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+            Then, let’s play with the Django shell by starting it with the python manage.py 
+            shell command:
+
+            _______________________________________________________________
+
+        ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+            3.3 Writing the Post serializer
+
+            The Post serializer will contain the fields needed to create a post when making a request on the 
+            endpoint. Let’s add the feature for the post creation first.
+
+            core/post/serializers.py
+            code:
+                from rest_framework import serializers
+                from rest_framework.exceptions import ValidationError
+                from core.abstract.serializers import AbstractSerializer    
+                from core.post.models import Post
+                from core.user.models import User
+
+                class PostSerializer(AbstractSerializer):
+                    author = serializers.SlugRelatedield(
+                        queryset=User.objects.all(), slug_field='public_id'
+                    )
+
+                    def validate_author(self, value):
+                        if self.context["request"] .user != value:
+                            raise ValidationError("can't create a post for another user.")
+
+                        return value
+
+                    class Meta:
+                        model = Post
+                        # List of all the fields that can be included in a request
+                        fields = ['id', 'author', 'body', 'edited', 'created', 'updated']
+                        read_only_fields = ['edited']
+
+====================================================================================================
+             3.4 Writing Post viewsets
+            For the following endpoint, we’ll only be allowing the POST and GET methods. This will help us have 
+            the basic features working first.
+            The code should follow these rules:
+                • Only authenticated users can create posts
+                • Only authenticated users can read posts
+                • Only GET and POST methods are allowed
+
+                core/post/viewsets.py
+                CODE:
+                    from rest_framework.permissions import IsAuthenticated
+                    from core.abstract.viewsets import AbstractViewSet
+                    from core.post.models import post
+                    from core.post.serializers import PostSerializer
+
+                    class PostViewSet(AbstractViewSet):
+                        http_method_names = ('post', 'get')
+                        permissions_classes = (IsAuthenticated,)
+                        serializer_class = PostSerializer
+
+                        def get_queryset(self):
+                            return Post.objects.all()
+
+                        def get_object(self):
+                            obj = Post.objects.get_object_by_public_id(
+                                self.kwargs['pk'])
+
+                            self.check_object_permissions(self.request, obj)
+                            return obj
+
+                        def create(self, request, *args, **kwargs):
+                            serializer = self.get_serializer(data=request.data)
+                            serializer.is_valid(raise_exception=True)
+                            self.perform_create(serializer)
+                            return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+=================================================================================
+                3.5 core/routers.py
+                ADDING ROUTER FOR POSTS
+                code:
+                    from core.post.viewsets import PostViewSet
+
+                    router.register(r'post', PostViewSet, basename='post')
+
+
+        =========================================================================
+
+        3.6 make the pagination to 15 per request so that api dont slow down when have many posts
+
+        CoreRoot/settings.py
+        REST_FRAMEWORK = {
+        …
+        'DEFAULT_PAGINATION_CLASS':
+        'rest_framework.pagination.LimitOffsetPagination',
+        'PAGE_SIZE': 15,
+        }
+        --------------------------------------------------------------
+
+        3.7 Rewriting the Post serialized object
+
+        it’ll be more practical to have the name of the author in the response as well. Let’s rewrite a 
+        serializer method that can help modify the response object.
+
+        Actually, the author field accepts public_id and returns public_id. While it does the 
+        work, it can be a little bit difficult to identify the user. This will cause it to make a request again with 
+        public_id of the user to get the pieces of information about the user.
+        The to_representation() method takes the object instance that requires serialization and 
+        returns a primitive representation. This usually means returning a structure of built-in Python data 
+        types. The exact types that can be handled depend on the render classes you configure for your API.
+        Inside post/serializers.py, add a new method called to_represenation():
+        core/post/serializers.py
+
+        def to_representtion(self, instance):
+            rep = super().to_represenration(instance)
+            author = User.objects.get_object_by_publi_id(rep["author"])
+            rep["author"] = UserSerializer(author).data
+            return rep
+=========================================================================================
+
+        3.8 Adding permissions
+
+        We want anonymous users to be able to read the posts on the API without necessarily being 
+        authenticated. While it’s true that there is the AllowAny permission, it’ll surely conflict with the 
+        IsAuthenticated permission.
+        Thus, we need to write a custom permission.
+        Inside the authentication directory, create a file called permissions, and add the 
+        following content:
+
+        core/post/viewsets.py
+
+        code:
+
+            from rest_framework.permissions import BasePermission, SAFE_METHODS
+
+            class UserPermission(BasePermission):
+
+                def has_object_permission(self, request, view, obj):
+                    if request.user.is_anonymous:
+                        return request.method in SAFE_METHODS
+
+                    if view.basename in ["post"]:
+                        return bool(request.user and request.user.is_authenticated)
+                    
+                return False
+
+                def has_permission(self, request, view):
+                    if view.basename in ["post"]:
+                        if request.user.is_anonymous:
+                            return request.method in SAFE_METHODS
+
+                        return bool(request.user and request.user.is_authenticated)
+
+                    return False
+============================================================================================
+
+
+         3.9   Deleting and updating posts
+
+         Deleting and updating articles are also part of the features of posts. To add these functionalities, we 
+        don’t need to write a serializer or a viewset, as the methods for deletion (destroy()), and updating 
+        (update()) are already available by default in the ViewSet class. We will just rewrite the update
+        method on PostSerializer to ensure that the edited field is set to True when modifying a post.
+
+            core/post/viesets
+
+            …
+            class PostViewSet(AbstractViewSet):
+            http_method_names = ('post', 'get', 'put', 'delete')
+            …
+
+=================================================================================
+
+            3.10 core/post/serializers.py
+
+            Before going in, let’s rewrite the update method in PostSerializer. We actually have a field 
+            called edited in the Post model. This field will tell us whether the post has been edited:
+
+            …
+            class PostSerializer(AbstractSerializer):
+            …
+                def update(self, instance, validated_data):
+                    if not instance.edited:
+                         validated_data['edited'] = True
+                    instance = super().update(instance, validated_data)
+                    return instance
+
+=================================================================================================
+
+              3.11  Adding the Like feature
+                    We’ll do this in four steps:
+                        10. Add a new posts_liked field to the User model.
+                        11. Write methods on the User model to like and remove a like from a post. We’ll also add a 
+                        method to check whether the user has liked a post.
+                        12. Add likes_count and has_liked to PostSerializer.
+                        13. Add endpoints to like and dislike a post.
+                        Great! Let’s start by adding the new fields to the User model.
+
+                        • A user can like many posts
+                        • A post can be liked by many users
+                        This kind of relationship sounds familiar? It is a many-to-many relationship.
+
+                        Open the /core/user/models.
+                        py file and add a new field to the User model:
+
+                        class User(AbstractModel, AbstractBaseUser, PermissionsMixin):
+                        ...
+                        posts_liked = models.ManyToManyField(
+                            "core_post.Post",
+                            related_name="liked_by"
+                            )
+                        ...
+=========================================================================
+
+            3.12 Adding the like, remove_like, and has_liked methods
+
+            Before writing these methods, let’s describe the purpose of each new method:
+            • The like() method: This is used for liking a post if it hasn’t been done yet. For this, we’ll use 
+            the add() method from the models. We’ll use ManyToManyField to link a post to a user.
+            • The remove_like() method: This is used for removing a like from a post. For this, we’ll 
+            use the remove method from the models. We’ll use ManyToManyField to unlink a post 
+            from a user.
+            • The has_liked() method: This is used for returning True if the user has liked a post, 
+            else False.
+
+                core/user/models.py
+            def like(self, post):
+                """Like `post` if it hasn't been done yet"""
+                return self.posts_liked.add(post)
+
+            def remove_like(self, post):
+                """Remove a like from a `post`"""
+                return self.posts_liked.remove(post)
+
+            def has_liked(self, post):
+                """Return True if the user has liked a `post`; else False"""
+                return self.posts_liked.filter(pk=post.pk).exists()
+
+=============================================================================
+
+                3.13 Adding the likes_count and has_liked fields to PostSerialize
+
+                Instead of adding fields such as likes_count in the Post model and generating more fields in 
+                the database, we can directly manage it on PostSerializer. The Serializer class in Django 
+                provides ways to create the write_only values that will be sent on the response.
+
+                Core/post/serializers.py
+            ...
+            class PostSerializer(AbstractSerializer):
+            ...
+            
+                liked = serializers.SerializerMethodField()
+                likes_count = serializers.SerializerMethodField()
+
+                def get_liked(self, instance):
+                    request = self.context.get('request', None)
+
+                    if request is None or request.user.is_anonymous:
+                        return False
+
+                    return request.user.has_like(instance)
+
+                def get_likes_count(self, instance):
+                    return instance.liked_by.count()
+==============================================================================
+
+                3.14    we can now add the endpoints needed to PostViewSet
+                         to like or dislike an article.
+
+                         Adding like and dislike actions to PostViewSet
+
+                         DRF provides a decorator called action. This decorator helps make methods on a ViewSet class 
+                        routable. The action decorator takes two arguments:
+                        • detail: If this argument is set to True, the route to this action will require a resource lookup 
+                        field; in most cases, this will be the ID of the resource
+                        • methods: This is a list of the methods accepted by the action
+
+                        
+                    @action(methods=['post'], detail=True)
+                    def like(self, request, *args, **kwargs):
+                        post = self.get_object()
+                        user = self.request.user
+
+                        user.like(post)
+
+                        serializer = self.serializer_class(post)
+
+                        return Response(serializer.data, status=status.HTTP_200_OK)
+
+                    @action(methods=['post'], detail=True)
+                    def remove_like(self, request, *args, **kwargs):
+                        post = self.get_object()
+                        user = self.request.user
+
+                        user.remove_like(post)
+
+                        serializer = self.serializer_class(post)
+
+                        return Response(serializer.data, status=status.HTTP_200_OK)
+
+======================================================================================================
+        new routes for this resource, and then, you can do the following:
+        1. Like a post with the following endpoint: api/post/post_pk/like/.
+        2. Remove the like from a post with the following endpoint: api/post/post_pk/remove_
+        like/.
+
+====================================================================================================
+========================================================================
+
+4 adding comments to social media Posts
+
+========================================================================
+
+structurre of the comments":
+1. public_id: starting
+2. body: starting
+3. author: ForeignKey(fk)
+4. post: fk
+5. edited: boolean
+6. created: DateTime
+7. updated: datetime.

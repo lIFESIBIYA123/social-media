@@ -1,13 +1,15 @@
-from rest_framework import serializers
-
+from core.abstract.serializers import AbstractSerializer
 from core.user.models import User
 
 
-class UserSerializer(serializers.ModelSerializer):
+# class UserSerializer(serializers.ModelSerializer):
+class UserSerializer(AbstractSerializer):
     # Rewriting some fields like the public id to be represented as the id of the object
-    id = serializers.UUIDField(source='public_id', read_only=True, format='hex')
-    created = serializers.DateTimeField(read_only=True)
-    updated = serializers.DateTimeField(read_only=True)
+    # id = serializers.UUIDField(source='public_id', read_only=True, format='hex')
+    # created = serializers.DateTimeField(read_only=True)
+    # updated = serializers.DateTimeField(read_only=True)
+
+    # change cuz i made new ones at abstract folder
 
     class Meta:
         model = User
