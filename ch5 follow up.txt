@@ -1,0 +1,594 @@
+===========================================================================
+    TESTING
+===========================================================================
+
+Software testing is the process of examining the behavior of the software under test for validation or 
+verification. It considers the attributes of reliability, scalability, reusability, and usability to evaluate the 
+execution of the software components (servers, database, application, and so on) and find software 
+bugs, errors, or defects.
+Software testing has a lot of benefits, some of which are as follows:
+
+    •    Cost effectiveness: Testing any software project helps the business save money in the long run. 
+        As the process helps detect bugs and check whether newly added features are working in the 
+        system without breaking things, it’s a great technical debt reducer.
+
+    •   Security: If testing is done well, it can be a quick way to detect security risks and problems at 
+        an early stage before deploying a product to the whole world.
+
+    •   Product quality: Testing helps with performance measurement, making sure that the requirements 
+        are respected.
+
+-----------------------------------------------------------------------------------
+What are the various types of testing?
+
+Testing is typically classified into three categories:
+
+• Functional testing: This type of testing comprises unit, integration, user acceptance, globalization, 
+    internationalization testing, and so on
+• Non-functional testing: This type of testing checks for factors such as performance, volume, 
+    scalability, usability, and load
+• Maintenance testing: This type of testing considers regression and maintenance
+
+However, these tests can also be classified into two different types:
+• Automated tests
+• Manual tests
+-----------------------------------------------------------------------------------
+
+testing in Django and introduce the notion of test-driven development (TDD)
+
+-----------------------------------------------------------------------------------
+
+why use Pytest? Well, it has the following advantages:
+• It is free and open source
+• It has a simple syntax and is very easy to start with
+• It automatically detects test files, functions, and classes
+• It can run multiple tests in parallel, increasing the performance and the speed of running tests
+
+ in this project to write two kinds of tests: integration tests and unit tests.
+___________________________________________________________________________________
+The testing pyramid
+
+The testing pyramid is a framework that can help developers start with testing to create high-quality 
+software. Basically, the testing pyramid specifies the types of tests that should be included in an 
+automated test suite.
+First of all, remember that the testing pyramid operates at three levels:
+• Unit tests
+• Integration tests
+• End-to-end tests
+------------------------------------------------------------------------------------
+
+Configuring the testing environment
+
+Pytest, taken alone, is simply a Python framework to write unit tests in Python programs. Thankfully, 
+there is a plugin for Pytest to write tests in Django projects and applications.
+Let’s install and configure the environment for testing by using the following command:
+
+    pip install pytest-django
+
+Once the package is installed, create a new file called pytest.ini at the root of the Django project:
+
+    [pytest]
+    DJANGO_SETTINGS_MODULE=CoreRoot.settings
+    python_files=tests.py test_*.py *_tests.py
+
+---------------------------------------------------------------------------------
+Writing tests for Django models
+
+why test the models?
+Well, it gives you better confidence in your code and the connections to the database. It’ll make sure 
+that methods or attributes on the model are well represented in the database, but it can also help you 
+with better code structure, resolving bugs, and building documentation.
+
+Writing tests for the User model
+
+core/user/tests.py
+
+import pytest
+from core.user.models import User
+
+data_user = {
+    "username": "test_user",
+    "email": "test@gmail.com",
+    "first_name": "Test",
+    "last_name": "User",
+    "password": "test_password"
+}
+-------
+-------
+Once the imports and the data to create the user
+have been added, we can write the test function:
+
+    import pytest
+    from core.user.models import User
+
+    data_user = {
+        "username": "test_user",
+        "email": "test@gmail.com",
+        "first_name": "Test",
+        "last_name": "User",
+        "password": "test_password"
+    }
+
+    @pytest.mark.django_db
+    def test_create_user():
+        user = User.objects.create_user(**data_user)
+        assert user.username == data_user["username"]
+        assert user.email == data_user["email"]
+        assert user.first_name == data_user["first_name"]
+        assert user.last_name == data_user["last_name"]
+        
+    data_superuser = {
+        "username": "test_superuser",
+        "email": "testsuperuser@gmail.com",
+        "first_name": "Test",
+        "last_name": "Superuser",
+        "password": "test_password"
+    }
+    @pytest.mark.django_db
+    def test_create_superuser():
+        user = User.objects.create_superuser(**data_superuser)
+        assert user.username == data_superuser["username"]
+        assert user.email == data_superuser["email"]
+        assert user.first_name == data_superuser["first_name"]
+        assert user.last_name == data_superuser["last_name"]
+        assert user.is_superuser == True
+        assert user.is_staff == True
+        
+-----------------------------------------------------------------------------------
+
+Writing tests for the Post model
+
+To create a model, we need to have a user object ready. This will also be the same for the Comment
+model. To avoid repetition, we’ll simply write fixtures.
+
+A fixture is a function that will run before each test function to which it’s applied. In this case, the 
+fixture will be used to feed some data to the tests.
+core/fixtures/user.py
+    code:
+        import pytest
+        from core.user.models import User
+
+        data_user = {
+            "username": "test_user",
+            "email": "test@gmail.com",
+            "first_name": "Test",
+            "last_name": "User",
+            "password": "test_password"
+        }
+
+        @pytest.mark.django_db
+        def user(db) -> User:
+            return User.objects.create_user(**data_user)
+-----------------------------------------------------------------------------------
+core/post/test.py
+
+    import pytest
+    from core.fixtures.user import user
+    from core.post.models import Post
+
+    @pytste.mark.django_db
+    def test_create_post(user):
+        post = Post.objects.create(author=user, body="Test Post Body")
+        assert post.body == "Test Post Body"
+        assert post.author == user
+----------------------------------------------------------------------------------
+Writing tests for the Comment model
+
+core/fixtures/post.py
+
+    import pytest
+    from core.fixtures.user import user
+    from core.post.models import Post
+
+    @pytest.fixture
+    def post(db, user):
+        return Post.objects.create(author=user, body="Test Post Body")
+-----------------------------------------------------------------------------------
+
+core/comments/test.py
+    import pytest 
+    from core.fixtures.user import user
+    from core.fixtures.post import post
+    from core.comment.models import Comment
+
+
+    @pytest.mark.django_db
+    def test_create_comment(user, post):
+        comment = Comment.objects.create(author=user, post=post, body="Test Comment Body")
+        assert comment.author == user
+        assert comment.post == post
+        assert comment.body == "Test Comment Body"
+
+----------------------------------------------------------------------------------
+Writing tests for your Django viewsets
+
+Viewsets or endpoints are the interfaces of the business logic that the external clients will use to fetch 
+data and create, modify, or delete data. It’s always a great habit to have tests to make sure that the 
+whole system, starting from a request to the database, is working as intended.
+
+Before starting to write the tests, let’s configure the Pytest environment to use the API client from DRF.
+The API client is a class that handles different HTTP methods, as well as features such as authentication 
+in testing, which can be very helpful for directly authenticating without a username and password to 
+test some endpoints. Pytest provides a way to add configurations in a testing environment.
+Create a file named conftest.py at the root of the project. Inside the file, we’ll create a fixture 
+function for our custom client:
+
+conftest.py
+
+import pytest
+from rest_framework.test import APIClient
+@pytest.fixture
+def client():
+    return APIClient()
+-----------------------------------------------------------------------------------
+
+Writing tests for authentication
+
+Inside the core/auth directory, create a file named tests.py. Instead of writing test functions 
+directly, we write a class that will contain the testing methods as follows:
+
+core/auth/tests.py
+    import pytest
+    from rest_framework import status
+    from core.fixtures.user import user
+
+    class TestAuthenticationViewSet:
+        endpoint = '/api/auth/'
+
+-----------------------------------------------------------------------------
+Let’s add the test_login method to the TestAuthenticationViewSet class:
+Core/auth/tests.py
+
+        import pytest
+        from rest_framework import status
+
+        from core.fixtures.user import user
+
+        class TestAuthenticationViewSet:
+            
+            endpoint = '/api/auth/'
+            
+            def test_login(self, client, user):
+                data = {
+                    "email": user.email,
+                    "username": user.username,
+                    "password": "test_password"
+                }
+                response = client.post(self.endpoint + "login/", data)
+
+                assert response.status_code == status.HTTP_200_OK
+                assert response.data['access']
+                assert response.data['user']['id'] == user.public_id.hex
+                assert response.data['user']['username'] == user.username
+                assert response.data['user']['email'] == user.email
+            
+            
+            @pytest.mark.django_db    
+            def test_register(self, client):
+                data = {
+                    "username": "johndoe",
+                    "email": "johndoe@yopmail.com",
+                    "password": "test_password",
+                    "first_name": "John",
+                    "last_name": "Doe"
+                }
+                
+                response = client.post(self.endpoint + "register/", data)
+                assert response.status_code == status.HTTP_201_CREATED
+                
+            def test_refresh(self, client, user):
+                data = {
+                    "email": user.email,
+                    "username": user.username,
+                    "password": "test_password"
+                }
+                response = client.post(self.endpoint + "login/", data)
+
+                assert response.status_code == status.HTTP_200_OK
+                
+                data_refresh = {
+                    "refresh":  response.data['refresh']
+                }
+                
+                response = client.post(self.endpoint + "refresh/", data_refresh)
+                assert response.status_code == status.HTTP_200_OK
+                assert response.data['access']
+----------------------------------------------------------------------------------
+Writing tests for PostViewSet
+
+Before starting to write the viewsets tests, let’s quickly refactor the code to simply write the tests and 
+follow the DRY rule. Inside the core/post directory, create a Python package called tests. Once 
+it’s done, rename the tests.py file in the core/post directory to test_models.py and move 
+it to the core/post/tests/ directory.
+Inside the same directory, create a new file called test_viewsets.py. This file will contain tests 
+for PostViewSet:
+
+core/post/tests/test_views.py
+     
+     from rest_framework import status
+    from core.fixtures.user import user
+    from core.fixtures.post import post
+
+    class TestPostViewSet:
+        endpoint = '/api/post/'
+-----------------------------------------------------------------------------------
+
+        PostViewSet handles requests for two types of users:
+        • Authenticated users
+        • Anonymous users
+        Each type of user has different permissions on the post resource. So, let’s make sure that these cases 
+        are handled:
+
+        For these tests, we are forcing authentication. We want to make sure that authenticated users have 
+        access to the post’s resources. Let’s now write a test method for post creation, updating, and deletion:    
+
+        for the anonymous users, we want them to 
+        access the resource in reading mode, so they can’t create, modify, or delete a resource. Let’s test and 
+        validate these features:
+        
+            def test_list_anonymous(self, client, post):
+                response = client.get(self.endpoint)
+                assert response.status_code == status.HTTP_200_OK
+                assert response.data["count"] == 1
+
+            def test_retrieve_anonymous(self, client, post):
+                response = client.get(self.endpoint +
+                str(post.public_id) + "/")
+                assert response.status_code == status.HTTP_200_OK
+                assert response.data['id'] == post.public_id.hex
+                assert response.data['body'] == post.body
+                assert response.data['author']['id'] ==
+                post.author.public_id.hex
+                ---------------------------------------------------
+
+        Run the tests to make sure everything is green. After that, let’s test the forbidden methods:
+    
+    code:
+
+        def test_create_anonymous(self, client):
+            data = {
+            "body": "Test Post Body",
+            "author": "test_user"
+            }
+
+            response = client.post(self.endpoint, data)
+            assert response.status_code == status.HTTP_401_UNAUTHORIZED
+        def test_update_anonymous(self, client, post):
+            data = {
+                "body": "Test Post Body",
+                "author": "test_user"
+            }
+            response = client.put(self.endpoint + str(post.public_id) + "/", data)
+            assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+        def test_delete_anonymous(self, client, post):
+            response = client.delete(self.endpoint + str(post.public_id) + "/")
+            assert response.status_code == status.HTTP_401_UNAUTHORIZED
+----------------------------------------------------------------------------------
+        FINAL CODE:
+        core/post/test/test_viewsets.py
+
+            from rest_framework import status
+            from core.fixtures.user import user
+            from core.fixtures.post import post
+
+            class TestPostViewSet:
+                endpoint = '/api/post/'
+
+                def test_list(self, client, user, post):
+                    client.force_authenticate(user=user)
+                    response = client.get(self.endpoint)
+                    assert response.status_code == status.HTTP_200_OK
+                    assert response.data["count"] == 1
+
+                def test_retrieve(self, client, user, post):
+                    client.force_authenticate(user=user)
+                    response = client.get(self.endpoint + str(post.public_id) + "/")
+                    assert response.status_code == status.HTTP_200_OK
+                    assert response.data['id'] == post.public_id.hex
+                    assert response.data['body'] == post.body
+                    assert response.data['author']['id'] == post.author.public_id.hex
+
+                # or creation and deletion of the posts
+
+                def test_create(self, client, user):
+                    client.force_authenticate(user=user)
+                    data = {
+                        "body": "Test Post Body",
+                        "author": user.public_id.hex
+                    }
+                    response = client.post(self.endpoint, data)
+                    assert response.status_code == status.HTTP_201_CREATED
+                    assert response.data['body'] == data['body']
+                    assert response.data['author']['id'] == user.public_id.hex
+
+                def test_update(self, client, user, post):
+                    client.force_authenticate(user=user)
+                    data = {
+                        "body": "Test Post Body",
+                        "author": user.public_id.hex
+                    }
+                    response = client.put(self.endpoint + str(post.public_id) + "/", data)
+                    assert response.status_code == status.HTTP_200_OK
+                    assert response.data['body'] == data['body']
+
+                def test_delete(self, client, user, post):
+                    client.force_authenticate(user=user)
+                    response = client.delete(self.endpoint + str(post.public_id) + "/")
+                    assert response.status_code == status.HTTP_204_NO_CONTENT
+
+                    #  Now, for the anonymous users, we want them to 
+                    # access the resource in reading mode, so they can’t create, modify, or delete a resource. Let’s test and 
+                    # validate these features:
+                            
+
+                def test_anonymous(self, client, post):
+                    response = client.get(self.endpoint)
+                    assert response.status_code == status.HTTP_200_OK
+                    assert response.data["count"] == 1
+
+                def test_retrieve_anonymous(self, client, post):
+                    response = client.get(self.endpoint + str(post.public_id) + "/")
+                    assert response.status_code == status.HTTP_200_OK
+                    assert response.data['id'] == post.public_id.hex
+                    assert response.data['body'] == post.body
+                    assert response.data['author']['id'] == post.author.public_id.hex
+
+                # let’s test the forbidden methods:
+
+                def test_create_anonymous(self, client):
+                    data = {
+                        "body": "Test Post Body",
+                        "author": "test_user"
+                    }
+                    response = client.post(self.endpoint, data)
+                    assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+                def test_update_anoymous(self, client, post):
+                    data = {
+                        "body": "Test Post Body",
+                        "author": "test_user"
+                    }
+                    response = client.put(self.endpoint + str(post.public_id) + "/", data)
+                    assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+                def test_delete_anonymous(self, client, post):
+                    response = client.delete(self.endpoint + str(post.public_id) + "/")
+                    assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+===================================================================================
+
+Writing tests for CommentViewSet
+Before starting to write the viewset tests, let’s also quickly refactor the code for writing the tests. Inside 
+the core/comment directory, create a Python package called tests. Once it’s done, rename the 
+tests.py file in the core/post directory to test_models.py and move it to the core/
+comment/tests/ directory.
+Inside the same directory, create a new file called test_viewsets.py. This file will contain tests 
+for CommentViewSet.
+Just like in PostViewSet, we have two types of users, and we want to write test cases for each of 
+their permissions.
+
+core/comment/tests/test_models.py
+        import pytest
+        from core.fixtures.user import user
+        from core.fixtures.post import post
+        from core.comment.models import Comment
+
+        @pytest.mark.django_db
+        def test_create_comment(user, post):
+            comment = Comment.objects.create(author=user, post=post, body="Test Comment Body")
+            assert comment.author == user
+            assert comment.post == post
+            assert comment.body == "Test Comment Body"
+
+        ----------------------------------------------------------------------
+
+        before creating comments, we need to add comment fixtures. Inside the core/fixtures
+        directory, create a new file called comment.py and add the following content:
+        core/fixtures/comment.py
+        import pytest
+        from core.fixtures.user import user
+        from core.fixtures.post import post
+        from core.comment.models import Comment
+
+        @pytest.fixture
+        def comment(db, user, post):
+             return Comment.objects.create(author=user, post=post, body="Test Comment Body")
+
+        ---------------------------------------------------------------------
+        core/comment/tests/test_viewsets.py
+        code:
+
+            from rest_framework import status
+
+            from core.fixtures.user import user
+            from core.fixtures.post import post
+            from core.fixtures.comment import comment
+
+            class TestCommentViewSet:
+                
+                # The comment resource is nested under the post resource
+                
+                endpoint = '/api/post/'
+                
+                ###########################################################################
+                ############### Test Comment ViewSet with authenticated user ##############
+                ###########################################################################
+                
+                def test_list(self, client, user, post, comment):
+                    client.force_authenticate(user=user)
+                    response = client.get(self.endpoint + str(post.public_id) + "/comment/")
+                    assert response.status_code == status.HTTP_200_OK
+                    assert response.data["count"] == 1
+                    
+                def test_retrieve(self, client, user, post, comment):
+                    client.force_authenticate(user=user)
+                    response = client.get(self.endpoint + str(post.public_id) + "/comment/" + str(comment.public_id) + "/")
+                    assert response.status_code == status.HTTP_200_OK
+                    assert response.data['id'] == comment.public_id.hex
+                    assert response.data['body'] == comment.body
+                    assert response.data['author']['id'] == comment.author.public_id.hex
+                    
+                def test_create(self, client, user, post):
+                    client.force_authenticate(user=user)
+                    data = {
+                        "body": "Test Comment Body",
+                        "author": user.public_id.hex,
+                        "post": post.public_id.hex
+                    }
+                    response = client.post(self.endpoint + str(post.public_id) + "/comment/", data)
+                    assert response.status_code == status.HTTP_201_CREATED
+                    assert response.data['body'] == data['body']
+                    assert response.data['author']['id'] == user.public_id.hex
+                    
+                def test_update(self, client, user, post, comment):
+                    client.force_authenticate(user=user)
+                    data = {
+                        "body": "Test Comment Body Updated",
+                        "author": user.public_id.hex,
+                        "post": post.public_id.hex
+                    }
+                    response = client.put(self.endpoint + str(post.public_id) + "/comment/" + str(comment.public_id) + "/", data)
+                    assert response.status_code == status.HTTP_200_OK
+                    assert response.data['body'] == data['body']
+                    
+                def test_delete(self, client, user, post, comment):
+                    client.force_authenticate(user=user)
+                    response = client.delete(self.endpoint + str(post.public_id) + "/comment/" + str(comment.public_id) + "/")
+                    assert response.status_code == status.HTTP_204_NO_CONTENT
+                    
+                
+                ###########################################################################
+                ####### Test Comment ViewSet with anonymous user ##########################
+                ###########################################################################
+                
+                def test_list_anonymous(self, client, post, comment):
+                    response = client.get(self.endpoint + str(post.public_id) + "/comment/")
+                    assert response.status_code == status.HTTP_200_OK
+                    assert response.data["count"] == 1
+                    
+                def test_retrieve_anonymous(self, client, post, comment):
+                    response = client.get(self.endpoint + str(post.public_id) + "/comment/" + str(comment.public_id) + "/")
+                    assert response.status_code == status.HTTP_200_OK
+                    
+                def test_create_anonymous(self, client, post):
+                    data = {}
+                    
+                    response = client.post(self.endpoint + str(post.public_id) + "/comment/", data)
+                    assert response.status_code == status.HTTP_401_UNAUTHORIZED
+                    
+                def test_update_anonymous(self, client, post, comment):
+                    data = {}
+                    
+                    response = client.put(self.endpoint + str(post.public_id) + "/comment/" + str(comment.public_id) + "/", data)
+                    assert response.status_code == status.HTTP_401_UNAUTHORIZED
+                    
+                def test_delete_anonymous(self, client, post, comment):
+                    response = client.delete(self.endpoint + str(post.public_id) + "/comment/" + str(comment.public_id) + "/")
+                    assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+=====================================================================================
+
+Writing tests for the UserViewSet class
+
+core/user/tests/test_viewsets.py

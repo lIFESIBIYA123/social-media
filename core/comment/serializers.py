@@ -17,13 +17,11 @@ class CommentSerializer(AbstractSerializer):
             raise ValidationError("You can't create a post for another user.")
         return value
 
-    #a validate method for the post field. We want to make sure that this  is not editable on PUT requests.
     def validate_post(self, value):
         if self.instance:
             return self.instance.post
         return value
 
-    #the update method on the CommentSerializer class.
     def update(self, instance, validated_data):
         if not instance.edited:
             validated_data['edited'] = True
