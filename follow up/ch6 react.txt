@@ -1,0 +1,158 @@
+
+To build a React application, you’ll need the following stack:
+
+    • Application code: React, Redux, ESLint, Prettier, and React Router
+    • Build tools: Webpack, Uglify, npm/yarn/pnpm, and babel
+    • Testing tools: Jest and Enzyme
+
+Creating the React project
+
+Before creating the React project, we need to have tools installed for a better development experience. 
+These tools are drivers, editors, and plugins basically. Let’s start by installing Node.js.
+
+Installing Node.js
+
+Creating and running a React app
+
+1. Run the following command to create a React application:
+ npm create vite@latest social-media-app
+
+This command will create a React application named social-media-app. If you are using 
+npm, then replace yarn with npx
+------------------------------
+
+Installing a debugging plugin in the browser
+
+To debug React applications, we have to install React Developer Tools, a plugin available on Chrome, 
+Firefox, and Edge browsers. You can find the plugin for the Chrome version at https://chrome.
+google.com/webstore/category/extensions and the Firefox version at https://
+addons.mozilla.org. The plugin looks something like this:
+
+CONFIGURING THE PROJECT
+Before starting to write the authentication flow, let’s make sure that the project is ready for coding. In 
+this section, we will configure styling and routing, and allow the request on the API.
+Let’s start with routing first.
+
+ADDING REACT ROUTER
+Routing in a frontend application represents everything that deals with moving from one view to 
+another and loading the right page using the right URL.
+command:
+yarn add react-router-dom@6
+-----
+edit the index.js file like so:
+src/main.jsx
+    import React from "react";
+    import ReactDom from 'react-dom/client'
+    import { BrowserRouter } from "react-router-dom"
+    import './index.css'
+    import App from './App.jsx'
+
+    // creating the root applicatin component
+    const root = ReactDom.createRoot(document.getElementById("root"));
+
+    root.render(
+    <React.StrictMode>
+        <BrowserRouter>
+        <App />
+        </BrowserRouter>
+    </React.StrictMode>
+    );
+------
+
+Adding React Bootstrap
+
+Fortunately, the React ecosystem provides a package called react-bootstrap independent of JQuery.
+Run the following command to install the package:
+yarn add react-bootstrap bootstrap
+-----
+Next, import the bootstrap CSS file into the main.jsx file like so:
+import 'bootstrap/dist/css/bootstrap.min.css';
+-----
+With react-router and react-bootstrap installed, let’s create a quick page using both of 
+these in the next subsection.
+-----
+CREATING THE HOME PAGE
+
+Creating a page in React using React Router follows this pattern most of the time:
+    • Creating the component and the page
+    • Registering the page in BrowserRouter with an URL
+
+Follow these steps to create the Home page:
+    1. Create a directory in src called pages.
+    2. Inside the pages directory, create a new file called Home.jsx:
+
+    SRC/PAGES/Home.jsx
+            import React from "react";
+
+            function Home() {
+                return(
+                    <div>
+                        <h1>profile</h1>
+                        <p>
+                            welcome
+                        </p>
+                    </div>
+                )
+            }
+
+            export default Home;
+
+------------------------------------
+Register this page in the App.js file:
+src/App.js
+
+import React from "react";
+import { Route, Routes } from "react-router-dom";
+import Home from "./pages/Home";
+
+function App() {
+  return(
+    <Routes>
+      <Route path="/" element={<Home />} />
+    </Routes>
+  );
+}
+
+export default App;
+
+----------
+Configuring CORS
+CORS stands for cross-origin resource sharing. It’s a browser mechanism that enables controlled
+access to resources located outside of a given domain.
+It helps prevent cross-domain attacks or unwanted requests. In the case of this project, the React 
+project is running on http://127.0.0.1:3000.
+If we try to make some requests from the browser, we’ll receive an error. Open the React application 
+at http://127.0.0.1:3000 and open Developer Tools:
+-----------
+Let’s quickly configure the Django API side by following these steps:
+1. Enable CORS with Django REST by using django-cors-headers:
+pip install django-cors-headers
+
+2. If the installation of the django-cors-headers package is complete, go to your settings.
+py file and add the package into INSTALLED_APPS and the middleware:
+
+CoreRoot/settings.py
+
+        INSTALLED_APPS
+            'corsheaders',
+
+        MIDDLEWARE 
+            'corsheaders.middleware.CorsMiddleware',
+            'django.middleware.common.CommonMiddleware',
+
+-----
+Add these lines at the end of the settings.py file:
+CoreRoot/settings.py
+    CORS_ALLOWED_ORIGINS = [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:8000",
+    ]
+
+-------
+Useful ES6 and React features
+s ECMAScript 2015, is a significant enhancement in the JavaScript language 
+that allows developers to write programs for complex applications with better techniques and patterns.
+
+With React, we have moved from writing classes to writing components using functions and React 
+Hooks

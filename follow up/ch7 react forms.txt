@@ -1,0 +1,719 @@
+
+
+we can manage authentication from the React application 
+side like so. When a registration or a login is successful, we store the returned response in the client’s 
+browser; we’ll use localStorage for this.
+
+The localStorage property helps us to work with the browser storage, enabling browsers to store 
+key-value pairs in the browser. Two methods will be used with localStorage: setItem() to 
+set a key-value pair and getItem() to access the values
+
+----------
+
+Writing the requests service
+use the axios package for HTTP requests.
+
+Axios is a popular library mainly used to send asynchronous HTTP requests to REST endpoints. Axios 
+is the perfect library for CRUD operations. However, we will also install axios-auth-refresh. 
+This simple library assists with an automatic refresh of tokens via axios interceptors. To install the 
+axios and axios-auth-refresh packages, follow these step
+
+1. In the social-media-app directory, add the axios and axios-auth-refresh
+packages by running the following command:
+            yarn add axios axios-auth-refresh
+
+2. Once it’s installed, create a directory called helpers in the src folder of the React project, 
+and once it’s done, add a file called axios.js:
+
+social-media-app/src/helpers/axios.js
+
+    code:
+        import axios from "axios";
+        import createAuthRefreshInterceptor from "axios-auth-refresh";
+
+        const axiosService = axios.create({
+            baseURL: "http://localhost:8000",
+            headers: {
+                "Content-Type": "appliction/json",
+            },
+        });
+
+        axiosService.interceptors.request.use(async (config) => {
+                /**
+                * Retrieving the access token from the localStorage
+                * adding it to the headers of the request
+                */
+
+                const { access } = 
+                JSON.parse(localStorage.getItem("auth"));
+                config.headers.Authorization = `Bearer ${access}`;
+                return config;
+            });
+
+        /**
+        * resolve the requests and return a resolved or rejected promise:
+        */
+
+        axiosService.intercetors.response.use(
+            (res) => Promise.resolve(res),
+            (err) => Promise.reject(err)
+        )
+
+        /**
+        * unction that contains the refresh auth logic. 
+        This function will be called whenever the failed request returns a 401 error:
+        */
+
+        const refreshAuthLogic = async (failedRequest) => {
+            const { refresh } =
+                JSON.parse(localStorage.getItem("auth"));
+
+            return axios.post("/refresh/token/", null, {
+                baseURL: "http://localhost:8000",
+                headers: {
+                    Authorization: `Bearer ${refresh}`,
+                },
+            })    
+            .then((resp) => {
+                const {access, refresh } = resp.data;
+                failedRequest.response.config.headers[
+                    "Authorization"
+                ] = "Bearer" + access;
+                localStorage.setItem("auth", JSON.stringify({access, refresh}));
+            })
+            .catch(() => {
+            localStorage.removeItem("auth");
+            });
+        };
+
+        /**
+        * initialize the authentication interceptor and create a custom fetcher too:
+        */
+
+
+        createAuthRefreshInterceptor(axiosService, refreshAuthLogic);
+
+        export function fetcher(url) {
+        return axiosService.get(url).then((res) => res.data);
+        }
+
+        export default axiosService;
+------------------------------------------------------------------
+
+Protected routes
+write a ProtectedRoute component using 
+React-Router components.
+
+Creating a protected route wrapper
+To create a protected route wrapper, follow these steps:
+    1. Create a new directory in the src directory called routes.
+    2. Inside the newly created directory, create a file called ProtectedRoute.jsx.
+    3. Once the file is created, import the needed libraries:
+
+src/routes/protectedRoutes.jsx:
+
+        import React from "react";
+        import { Navigate } from "react-router-dom";
+
+        import { getUser } from "../hooks/user.actions";
+
+        function ProtectedRoute({ children }) {
+            const user = getUser();
+
+            return user ? <>{children}</> : <Navigate to="/login/" />;
+            }
+
+        export default ProtectedRoute;
+-----------------------------------------------------
+In the preceding code snippet, we are retrieving the user property from localStorage.
+We then use this property to check whether we should redirect the user to the login page or 
+render the page (children). If user is null or undefined, it means that the user has not logged 
+in, so we redirect the user to the login page, otherwise, we give access to the asked page.
+-----------------------------------------------------
+
+Then, inside the App.js file, let’s rewrite the content:
+src/App.jsx
+    import React from "react";
+    import { Route, Routes } from "react-router-dom";
+    import Home from "./pages/Home";
+    import ProtectedRoute from "./routes/ProtectedRoute";
+
+    function App() {
+    return(
+        <Routes>
+        <Route path="/" element={
+            <ProtectedRoute>
+            <Home />
+            </ProtectedRoute>
+        } />
+        <Route path="/login/" element={<div>Login</div>} />
+        </Routes>
+    );
+    }
+
+    export default App;
+-----------------------------------------------------
+Creating the registration page
+
+Adding a registration page
+
+Let’s start by writing code for the form page. We’ll start by writing the registration form component:
+
+1. Inside the src directory, create a new directory called components and then create a new 
+directory called authentication inside the newly created directory.
+This directory will contain the registration and login forms.
+
+2. Once that’s done, create a file called RegistrationForm.jsx inside the 
+authentication directory:
+
+=====
+React Bootstrap provides form components that we can use quickly to create a form and make 
+basic validation. In this component, we’ll also have to make a request to the API, register the user 
+details and tokens in the store, and redirect the user to the home page if the request is successful.
+=====
+scr/components/authenticate/RegistrationForm.jsx
+        code:
+            import React, { useState } from "react";
+            import { Form, Button } from "react-bootstrap";
+
+            import { useUserActions } from "../../hooks/user.actions";
+
+            function RegistrationForm() {
+            const [validated, setValidated] = useState(false);
+            const [form, setForm] = useState({
+                username: "",
+                email: "",
+                password: "",
+                first_name: "",
+                last_name: "",
+                bio: "",
+            });
+            const [error, setError] = useState(null);
+            const userActions = useUserActions();
+
+            const handleSubmit = (event) => {
+                event.preventDefault();
+                const registrationForm = event.currentTarget;
+
+                if (registrationForm.checkValidity() === false) {
+                event.stopPropagation();
+                }
+
+                setValidated(true);
+
+                const data = {
+                username: form.username,
+                password: form.password,
+                email: form.email,
+                first_name: form.first_name,
+                last_name: form.last_name,
+                bio: form.bio,
+                };
+
+                userActions.register(data).catch((err) => {
+                if (err.message) {
+                    setError(err.request.response);
+                }
+                });
+            };
+
+            return (
+                <Form
+                id="registration-form"
+                className="border p-4 rounded"
+                noValidate
+                validated={validated}
+                onSubmit={handleSubmit}
+                >
+                <Form.Group className="mb-3">
+                    <Form.Label>First Name</Form.Label>
+                    <Form.Control
+                    value={form.first_name}
+                    onChange={(e) => setForm({ ...form, first_name: e.target.value })}
+                    required
+                    type="text"
+                    placeholder="Enter first name"
+                    />
+                    <Form.Control.Feedback type="invalid">
+                    This file is required.
+                    </Form.Control.Feedback>
+                </Form.Group>
+                <Form.Group className="mb-3">
+                    <Form.Label>Last name</Form.Label>
+                    <Form.Control
+                    value={form.last_name}
+                    onChange={(e) => setForm({ ...form, last_name: e.target.value })}
+                    required
+                    type="text"
+                    placeholder="Enter last name"
+                    />
+                    <Form.Control.Feedback type="invalid">
+                    This file is required.
+                    </Form.Control.Feedback>
+                </Form.Group>
+
+                // username
+
+                <Form.Group className="mb-3">
+                    <Form.Label>Username</Form.Label>
+                    <Form.Control
+                    value={form.username}
+                    onChange={(e) => setForm({ ...form, username: e.target.value })}
+                    required
+                    type="text"
+                    placeholder="Enter username"
+                    />
+                    <Form.Control.Feedback type="invalid">
+                    This file is required.
+                    </Form.Control.Feedback>
+                </Form.Group>
+
+                //email
+
+                <Form.Group className="mb-3">
+                    <Form.Label>Email address</Form.Label>
+                    <Form.Control
+                    value={form.email}
+                    onChange={(e) => setForm({ ...form, email: e.target.value })}
+                    required
+                    type="email"
+                    placeholder="Enter email"
+                    />
+                    <Form.Control.Feedback type="invalid">
+                    Please provide a valid email.
+                    </Form.Control.Feedback>
+                </Form.Group>
+
+                    // password
+
+                <Form.Group className="mb-3">
+                    <Form.Label>Password</Form.Label>
+                    <Form.Control
+                    value={form.password}
+                    minLength="8"
+                    onChange={(e) => setForm({ ...form, password: e.target.value })}
+                    required
+                    type="password"
+                    placeholder="Password"
+                    />
+                    <Form.Control.Feedback type="invalid">
+                    Please provide a valid password.
+                    </Form.Control.Feedback>
+                </Form.Group>
+
+                    /** Bio */
+                    
+                <Form.Group className="mb-3">
+                    <Form.Label>Bio</Form.Label>
+                    <Form.Control
+                    value={form.bio}
+                    onChange={(e) => setForm({ ...form, bio: e.target.value })}
+                    as="textarea"
+                    rows={3}
+                    placeholder="A simple bio ... (Optional)"
+                    />
+                </Form.Group>
+
+                <div className="text-content text-danger">{error && <p>{error}</p>}</div>
+
+                <Button variant="primary" type="submit">
+                    Submit
+                </Button>
+                </Form>
+            );
+            }
+
+            export default RegistrationForm;
+===================================================
+Registering the registration page route
+Inside the src/pages directory, create a file called Registration.jsx:
+src/pages/Registration.jsx
+
+code:
+
+    import React from "react";
+    import { Link } from "react-router-dom";
+    import RegistrarionForm from "../components/forms/RegistraionForm";
+    import RegistrationForm from "../components/authentication/RegistrationForm";
+
+    function Registration() {
+        return (
+            <div className="container">
+                <div className="row">
+                    <div className="col-md-6 d-flex align-items-center">
+                        <div className="content text-center px-4">
+                            <h1 className="text-primary">
+                                Welcome to Postman
+                            </h1>
+                            <p className="content">
+                                this is a social media site that will allow you 
+                                to share your thoughts and exprience with your friends.
+                                Register now and start enjoying! <br />
+                                or if you already have an account, please{" "}
+                                <Link to="/login/">login</Link>
+                            </p>
+                        </div>
+                    </div>
+                    <div className="col-md-6 p-5">
+                        <RegistrationForm />
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    export default Registration;
+__________________________________________________________
+
+    Next, open App.js and register the page:
+    src/App.js
+
+        import Registration from "./pages/Registration";
+        function App() {
+            return (
+                <Routes>
+                ...
+                 <Route path="/register/" element={<Registration />} 
+                 />
+                </Routes>
+            );
+        }
+        ...
+
+__________________________________________________________
+Creating the login page
+Adding the login page
+
+1. Inside the src/components/authentication directory, add a new file called LoginForm.
+jsx. This file will contain the form component to log in a user.
+2. Next, add the imports:
+
+scr/components/authentication/LoginForm.jsx
+code:
+    import React, { useState } from "react";
+    import { Form, Button } from "react-bootstrap";
+    import axios from "axios";
+    import { useNavigate } from "react-router-dom";
+
+    function LoginForm() {
+        const navigate = useNavigate();
+        const [validated, setValidated] = useState(false);
+        const [form, setForm] = useState({});
+        const [error, setError] = useState({});
+
+        const handleSubmit = (event) => {
+            event.preventDefault();
+            const loginForm = event.currentTarget;
+
+            if (loginForm.checkValidity() === false) {
+                event.stopPropagation();
+                setValidated(true);
+                return; // Add return to stop execution if form is invalid
+            }
+
+            setValidated(true);
+
+            const data = {
+                username: form.username,
+                password: form.password,
+            };
+
+            // Move axios call inside handleSubmit
+            axios
+                .post("http://localhost:8000/api/auth/login/", data)
+                .then((res) => {
+                    localStorage.setItem("auth", JSON.stringify({
+                        access: res.data.access,
+                        refresh: res.data.refresh,
+                        user: res.data.user
+                    }));
+                    navigate("/");
+                })
+                .catch((err) => {
+                    if (err.response) {
+                        setError(err.response.data);
+                    }
+                });
+        };
+
+        return (
+            <Form
+                id="registration-form"
+                className="border p-4 rounded"
+                noValidate
+                validated={validated}
+                onSubmit={handleSubmit}
+            >
+                <Form.Group className="mb-3">
+                    <Form.Label>Username</Form.Label>
+                    <Form.Control
+                        value={form.username}
+                        onChange={(e) => setForm({ ...form, username: e.target.value })}
+                        required
+                        type="text"
+                        placeholder="Enter username"
+                    />
+                    <Form.Control.Feedback type="invalid">
+                        This field is required
+                    </Form.Control.Feedback>
+                </Form.Group>
+
+                {/* Password */}
+                <Form.Group className="mb-3">
+                    <Form.Label>Password</Form.Label>
+                    <Form.Control
+                        value={form.password}
+                        minLength="8"
+                        onChange={(e) => setForm({ ...form, password: e.target.value })}
+                        required
+                        type="password"
+                        placeholder="password"
+                    />
+                    <Form.Control.Feedback type="invalid">
+                        Please provide a valid password
+                    </Form.Control.Feedback>
+                </Form.Group>
+
+                <div className="text-content text-danger">
+                    {error && <p>{error}</p>}
+                </div>
+
+                <Button variant="primary" type="submit">
+                    Submit
+                </Button>
+            </Form>
+        );
+    }
+
+    export default LoginForm;
+
+--------------------------------------------------------------
+Registering the login page
+Inside the src/pages directory, create a file called Login.jsx:
+src/pages/Login.jsx
+    CODE:
+        import React from "react";
+        import { Link } from "react-router-dom";
+        import LoginForm from "../components/authentication/LoginForm";
+
+        function Login() {
+        return (
+            <div className="container">
+            <div className="row">
+                <div className="col-md-6 d-flex align-items-center">
+                <div className="content text-center px-4">
+                    <h1 className="text-primary">Welcome to Postagram!</h1>
+                    <p className="content">
+                    Login now and start enjoying! <br />
+                    Or if you don't have an account, please{" "}
+                    <Link to="/register/">register</Link>.
+                    </p>
+                </div>
+                </div>
+                <div className="col-md-6 p-5">
+                <LoginForm />
+                </div>
+            </div>
+            </div>
+        );
+        }
+
+        export default Login;
+--------------------------------------------------------------
+Refactoring the authentication flow code
+What is a Hook?
+Hooks were first introduced in React 16.8, allowing developers to use more of React’s features without 
+writing a class. An interesting example of a React Hook is useState.
+useState is a replacement for setState, used inside functional components to manage the 
+internal state of a component. In LoginForm, we used useState to handle the form values. We 
+also used useState to set the message error if the login request returns an error. 
+--------------------------------------------------------------
+• Only call Hooks at the top level: Don’t call Hooks inside loops, conditions, or nested routes
+• Only call Hooks from React functions: Call Hooks from React function components and 
+custom Hooks
+--------------------------------------------------------------
+
+Writing code for a custom Hook
+
+Follow these steps to create a custom Hook:
+
+1.  Inside the src directory, create a new directory called hooks. This directory will contain all 
+    the Hooks that we’ll write in this book.
+2.  Inside the newly created directory, add a file called user.actions.js.
+3.  Let’s add all the necessary content, starting with the imports:
+
+--------------------------------------------------------------
+src/hooks/user.actions.js
+
+import axios from "axios";
+import { useNavigate } from "react-router-dom";
+
+--------------------------------------------------------------
+Next, let’s add a function called useUserActions. A custom Hook is a JavaScript function 
+whose name starts with use:
+
+src/hooks/user.actions.js
+
+    function useUserActions() {
+        const navigate = useNavigate();
+        const baseURL = "http://localhost:8000/api";
+            return {
+            login,
+            register,
+            logout,
+        };
+    }
+--------------------------------------------------------------
+We can now add the login and logout functions. These functions will return Promise, 
+which, if successful, will register the user data in localStorage and redirect the user to 
+the home page, or allow us to catch and handle errors.
+--------------------------------------------------------------
+We will now write the register function as a bit of exercise, but it’s not that different from 
+the login function:
+
+src/hooks/user.actions.js
+
+    ...
+    // Login the user
+    function login(data) {
+        return axios.post(`${baseURL}/auth/login/`, data).then((res) => {
+        // Registering the account and tokens in the
+        // store
+        setUserData(data);
+        navigate("/");
+        });
+    }
+    ...
+
+--------------------------------------------------------------
+Next, write the logout function. This function will remove the auth item from localStorage
+and redirect the user to the login page:
+
+src/hooks/user.actions.js
+
+    ...
+    // Logout the user
+    function logout() {
+        localStorage.removeItem("auth");
+        navigate("/login");
+    }
+    ...
+--------------------------------------------------------------
+Note that we are using a method called setUserData, which we have not declared yet.
+
+After the useUserActions function, let’s add other utils functions that can be used across the 
+project. These functions will help us to retrieve access tokens, refresh tokens, user information, 
+or set user data:
+
+src/hooks/user.actions.js
+
+// Get the user
+function getUser() {
+    const auth =
+        JSON.parse(localStorage.getItem("auth"));
+    return auth.user;
+}
+
+// Get the access token
+function getAccessToken() {
+    const auth =
+        JSON.parse(localStorage.getItem("auth"));
+    return auth.access;
+}
+
+// Get the refresh token
+function getRefreshToken() {
+ const auth =
+ JSON.parse(localStorage.getItem("auth"));
+ return auth.refresh;
+}
+// Set the access, token and user property
+function setUserData(data) {
+    localStorage.setItem(
+        "auth",
+            JSON.stringify({
+            access: res.data.access,
+            refresh: res.data.refresh,
+            user: res.data.user,
+        })
+    );
+}
+--------------------------------------------------------------
+
+
+Important note
+You might find it confusing to declare functions after calling them. Writing functions in 
+JavaScript using the function keyword allows hoisting, meaning that functions declaration 
+is moved to the top of their scope before code execution. You can learn more at https://
+developer.mozilla.org/en-US/docs/Glossary/Hoisting.
+--------------------------------------------------------------
+With the functions for retrieving a user, the access and refresh tokens, and the function to set user data in 
+localStorage, we can now call the function in the LoginForm and RegisterForm components.
+
+Using the functions in code
+
+We have a useful Hook, useUserActions, in the user.actions.js file. We will use this 
+Hook to call the login method, thus replacing the old login logic in the LoginForm.js file. Let’s 
+start by using the newly written custom Hook in the LoginForm component. Follow these steps:
+
+1. First, import the Hooks and declare a new variable:
+
+import { useUserActions } from "../../hooks/user.actions";
+
+function LoginForm() {
+ const [validated, setValidated] = useState(false);
+ const [form, setForm] = useState({});
+ const [error, setError] = useState(null);
+ const userActions = useUserActions();
+
+--------------------------------------------------------------
+Now, we can make some changes to the handleSubmit function concerning the login 
+request on the API:
+
+const data = {
+ email: form.email,
+ password: form.password,
+ };
+ userActions.login(data)
+    .catch((err) => {
+        if (err.message) {setError(err.request.response);
+        }
+    });
+ };
+
+--------------------------------------------------------------
+the same code also apply in registration form
+--------------------------------------------------------------
+Great! Let’s now use the other utils functions in the axios helper and the 
+ProtectedRoute component:
+
+src/routes/ProtectedRoute.jsx
+
+function ProtectedRoute({ children }) {
+ const user = getUser();
+ return user ? <>{children}</> : <Navigate
+    to="/login/" />;
+...
+Next, let’s do some tweaks in the axios helper:
+...
+import { getAccessToken, getRefreshToken } from "../
+hooks/user.actions";
+...
+ config.headers.Authorization = `Bearer 
+    ${getAccessToken()}`;
+...
+ .post("/refresh/token/", null, {
+    baseURL: "http://localhost:8000",
+    headers: {
+        Authorization: `Bearer ${getRefreshToken()}`,
+...
+ const { access, refresh, user } = resp.data;
+ failedRequest.response.config.headers[
+    "Authorization"] = "Bearer " + access;
+    localStorage.setItem("auth", JSON.stringify({
+        access, refresh, user }));
+        })
+        .catch(() => {
+        localStorage.removeItem("auth");
+ });
+...

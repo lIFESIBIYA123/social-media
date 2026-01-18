@@ -1,0 +1,50 @@
+npm ls --depth=0
+
+ocial-media-app@0.0.0 C:\Users\Autocrat Tech\Desktop\projects\social-media\social-media-app
+├── @eslint/js@9.39.2
+├── @types/react-dom@19.2.3
+├── @types/react@19.2.8
+├── @vitejs/plugin-react-swc@4.2.2
+├── axios@1.13.2
+├── bootstrap@5.3.8
+├── eslint-plugin-react-hooks@7.0.1
+├── eslint-plugin-react-refresh@0.4.26
+├── eslint@9.39.2
+├── globals@16.5.0
+├── react-bootstrap@2.10.10
+├── react-dom@19.2.3
+├── react-error-boundary@6.1.0
+├── react-router-dom@6.30.3
+├── react@19.2.3
+└── vite@7.3.1
+
+----
+
+social-media-app@0.0.0 C:\Users\Autocrat Tech\Desktop\projects\social-media\social-media-app
+├─┬ react-bootstrap@2.10.10
+│ ├─┬ @restart/hooks@0.4.16
+│ │ └── react@19.2.3 deduped
+│ ├─┬ @restart/ui@1.9.4
+│ │ ├─┬ @react-aria/ssr@3.9.10
+│ │ │ └── react@19.2.3 deduped
+│ │ ├─┬ @restart/hooks@0.5.1
+│ │ │ └── react@19.2.3 deduped
+│ │ ├── react@19.2.3 deduped
+│ │ └─┬ uncontrollable@8.0.4
+│ │   └── react@19.2.3 deduped
+│ ├─┬ prop-types-extra@1.1.1
+│ │ └── react@19.2.3 deduped
+│ ├─┬ react-transition-group@4.4.5
+│ │ └── react@19.2.3 deduped
+│ ├── react@19.2.3 deduped
+│ └─┬ uncontrollable@7.2.1
+│   └── react@19.2.3 deduped
+├─┬ react-dom@19.2.3
+│ └── react@19.2.3 deduped
+├─┬ react-error-boundary@6.1.0
+│ └── react@19.2.3 deduped
+├─┬ react-router-dom@6.30.3
+│ ├─┬ react-router@6.30.3
+│ │ └── react@19.2.3 deduped
+│ └── react@19.2.3 deduped
+└── react@19.2.3
