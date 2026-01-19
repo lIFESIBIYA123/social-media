@@ -72,7 +72,7 @@ function UpdatePost(props) {
       </Modal>
       <Toaster
         title="Success!"
-        message="Post updated 🚀"
+        message="Post updated"
         type="success"
         showToast={showToast}
         onClose={() => setShowToast(false)}

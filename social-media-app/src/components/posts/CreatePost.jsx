@@ -37,7 +37,7 @@ function CreatePost(props) {
       .post("/post/", data)
       .then(() => {
         handleClose();
-        setToastMessage("Post created 🚀");
+        setToastMessage("Post created");
         setToastType("success");
         setForm({});
         setShowToast(true);
