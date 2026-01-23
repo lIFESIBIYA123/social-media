@@ -85,8 +85,9 @@ createAuthRefreshInterceptor(axiosService, refreshAuthLogic);
 /**
  * SWR / data fetch helper
  */
-export function fetcher(url) {
-  return axiosService.get(url).then((res) => res.data);
+export async function fetcher(url) {
+  const res = await axiosService.get(url);
+  return res.data;
 }
 
 export default axiosService;

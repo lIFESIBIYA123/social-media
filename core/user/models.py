@@ -4,6 +4,9 @@ from django.db import models
 from core.abstract.models import AbstractModel, AbstractManager
 
 
+def user_directory_path(instance, filename):
+    # file will be uploaded to MEDIA_ROOT/user_<id>/<filename>
+    return 'user_{0}/{1}'.format(instance.public_id, filename)
 class UserManager(BaseUserManager, AbstractManager):
 
     def create_user(self, username, email, password=None, **kwargs):
@@ -50,7 +53,13 @@ class User(AbstractModel, AbstractBaseUser, PermissionsMixin):
     is_superuser = models.BooleanField(default=False)
 
     bio = models.TextField(null=True)
-    avatar = models.ImageField(null=True)
+    avatar = models.ImageField(null=True, blank=True, upload_to=user_directory_path)
+    # cover = models.ImageField(upload_to="covers/", blank=True)
+    
+    comments_liked = models.ManyToManyField(
+        "core_comment.Comment",
+        related_name="liked_by"
+    )
 
     posts_liked = models.ManyToManyField(
         "core_post.Post",
@@ -80,4 +89,17 @@ class User(AbstractModel, AbstractBaseUser, PermissionsMixin):
     def has_liked(self, post):
         """Return True if the user has liked a `post`; else False"""
         return self.posts_liked.filter(pk=post.pk).exists()
+
+    def like_comment(self, comment):
+        """Like `comment` if it hasn't been done yet"""
+        return self.comments_liked.add(comment)
+
+    def remove_like_comment(self, comment):
+        """Remove a like from a `comment`"""
+        return self.comments_liked.remove(comment)
+
+    def has_liked_comment(self, comment):
+        """Return True if the user has liked a `comment`; else False"""
+        return self.comments_liked.filter(pk=comment.pk).exists()
+
 

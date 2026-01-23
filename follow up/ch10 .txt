@@ -1,0 +1,648 @@
+Listing profiles on the home page
+
+1. In the src/components file, create a new directory called profile. This directory will 
+contain the code for all components related to users or profiles.
+2. In the newly created directory, create a file called ProfileCard.jsx and add the 
+following content:
+-----------------------------------------
+src/components/profile/ProfileCard.jsx
+
+import React from "react";
+import { Card, Button, Image } from "react-bootstrap";
+import { useNavigate } from "react-router-dom";
+
+function ProfileCard(props) {
+    const navigate = useNavigate();
+    const { user } = props;
+
+    const handleNavigateToProfile = () => {
+        navigate(`/profile/${user.id}`)
+    };
+
+    return (
+        <Card className="boarder-0 p-2">
+            <div className="d-flex">
+                <Image
+                    src={user.avatar}
+                    roundedCircle
+                    width={48}
+                    height={48}
+                    className="my-3 border-primary border-2"
+                />
+                <Card.Body>
+                    <Card.Title className="fa-6">
+                        {user.username}
+                    </Card.Title>
+                    <Button variant="primary" onclick={handleNavigateToProfile}>
+                        View Profile
+                    </Button>
+                </Card.Body>
+            </div>
+        </Card>
+    );
+}
+
+export default ProfileCard;
+
+-----------------------------------------
+The ProfileCard component is written. We can now import it into the Home.jsx page 
+and use it. But before that, we need to retrieve five profiles from the API and loop through the 
+results to have the wanted display:
+-----------------------------------------
+src/pages/Home.jsx
+
+import React from "react";
+import Layout from "../components/Layout";
+import { Row, Col, Image } from "react-bootstrap";
+import { randomAvatar } from "../utils";
+import useSWR from "swr";
+import { fetcher } from "../helpers/axios";
+import { getUser } from "../hooks/user.actions";
+import Post from "../components/posts/Post";
+import CreatePost from "../components/posts/CreatePost";
+import ProfileCard from "../components/profile/ProfileCard"
+
+function Home() {
+  const posts = useSWR("/post/", fetcher, {
+    refreshInterval: 10000,
+  });
+  const profiles = userSWR("/user/?limit=5", fetcher);
+
+  const user = getUser();
+
+  if (!user) {
+    return <div>Loading!</div>;
+  }
+
+  return (
+    <Layout>
+      <Row className="justify-content-evenly">
+        <Col sm={7}>
+          <Row className="border rounded  align-items-center">
+            <Col className="flex-shrink-1">
+              <Image
+                src={randomAvatar()}
+                roundedCircle
+                width={52}
+                height={52}
+                className="my-2"
+              />
+            </Col>
+            <Col sm={10} className="flex-grow-1">
+              <CreatePost refresh={posts.mutate}/>
+            </Col>
+          </Row>
+          <Row className="my-4">
+            {posts.data?.results.map((post, index) => (
+              <Post key={index} post={post} refresh={posts.mutate} />
+            ))}
+          </Row>
+        </Col>
+        <Col sm={3} className="border rounded py-4 h-50">
+            <h4 className="font-weight-bold text-center">
+              Suggested People
+            </h4>
+            <div className="d-flex flex-column">
+              {profiles.data && profiles.data.results.map((profile, index) => (
+                <ProfileCard key={index} user={profile} />
+              ))}
+            </div>
+        </Col>
+      </Row>
+    </Layout>
+  );
+}
+
+export default Home;
+-----------------------------------------
+creating components to display information about a profile, like so.
+
+Displaying user information on their profile page
+
+Let’s start using the value of the avatar field on the user object but before that,
+we have to configure 
+Django to deal with media upload and the avatar field on the user object.
+
+Django supports file uploading; we just need to add 
+some configuration to make it effective.
+-----------------------------------------
+Inside the settings.py file of the project, 
+add the following lines at the end of the project:
+
+CoreRoot/settings.py
+…
+MEDIA_URL'= '/med'a/'
+MEDIA_ROOT = BASE_DIR'/ 'uplo'ds'
+-----------------------------------------
+pip install pillow
+
+After that, let’s slightly modify the avatar field on the user model. Inside the core/user/models.
+py, add a function before the UserManager manager class:
+
+core/user/models.py
+
+def user_directory_path(instance, filename):
+    # file will be uploaded to MEDIA_ROOT/user_<id>/<filename>
+    return 'user_{0}/{1}'.format(instance.public_id, filename)
+-----------------------------------------
+
+This function will help re-write the path for the upload of a file. Instead of going directly into the 
+uploads directory, the avatar is stocked according to a user. It can help with the better organization of 
+files in your system. After adding the function, we can tell Django to use it for the default upload path:
+
+core/user/models.py
+
+...
+class User(AbstractModel, AbstractBaseUser, PermissionsMixin):
+
+...
+ avatar = models.ImageField(
+ null=True, blank=True,
+ upload_to=user_directory_path)
+...
+
+In Django, the ImageField field is used to store image files in a database. It is a subclass of 
+FileField, which is a generic field for storing files, so it has all the attributes of FileField as 
+well as some additional attributes specific to images. The upload_to attribute specifies the directory 
+where the image files will be stored.
+-----------------------------------------
+python manage.py makemigrations
+python manage.py migrate
+-----------------------------------------
+Configuring the default avatar
+
+To configure the default avatar, follow these steps:
+In the settings.py file of the Django project, add the following line at the end of the file:
+
+CoreRoot/settings.py
+
+DEFAULT_AVATAR_URL = "https://avatars.dicebear.com/api/
+identicon/.svg"
+-----------------------------------------
+CoreRoot/urls.py
+"""CoreRoot URL Configuration
+
+The `urlpatterns` list routes URLs to views. For more information please see:
+    https://docs.djangoproject.com/en/4.0/topics/http/urls/
+Examples:
+Function views
+    1. Add an import:  from my_app import views
+    2. Add a URL to urlpatterns:  path('', views.home, name='home')
+Class-based views
+    1. Add an import:  from other_app.views import Home
+    2. Add a URL to urlpatterns:  path('', Home.as_view(), name='home')
+Including another URLconf
+    1. Import the include() function: from django.urls import include, path
+    2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
+"""
+from django.contrib import admin
+from django.urls import path, include
+
+from django.conf import settings
+from django.conf.urls.static import static
+
+urlpatterns = [
+    path('admin/', admin.site.urls),
+    path('api/', include(('core.routers', 'core'), namespace="core-api")),
+]
+
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+
+-----------------------------------------
+
+
+Once you have added DEFAULT_AVATAR_URL to the settings.py file, we will slightly 
+modify the UserSerializer representation method to return the DEFAULT_AVATAR_URL
+value by default if the avatar field is none:
+
+Core/user/serializers.py
+
+from core.abstract.serializers import AbstractSerializer
+from core.user.models import User
+from django.conf import settings
+from rest_framework import serializers
+
+
+# class UserSerializer(serializers.ModelSerializer):
+class UserSerializer(AbstractSerializer):
+    posts_count = serializers.SerializerMethodField()
+
+    def get_posts_count(self, instance):
+        return instance.post_set.all().count()
+
+
+ # this returns default avatar if the user did not uplod one
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        if not representation['avatar']:
+            representation['avatar'] = settings.DEFAULT_AVATAR_URL
+            return representation
+        if settings.DEBUG:  # debug enabled for dev
+            request = self.context.get('request')
+            representation['avatar'] = request.build_absolute_uri(representation['avatar'])
+        return representation
+
+    # Rewriting some fields like the public id to be represented as the id of the object
+    # id = serializers.UUIDField(source='public_id', read_only=True, format='hex')
+    # created = serializers.DateTimeField(read_only=True)
+    # updated = serializers.DateTimeField(read_only=True)
+
+    # change cuz i made new ones at abstract folder
+
+    class Meta:
+        model = User
+        # List of all the fields that can be included in a request or a response
+        fields = ['id', 'username', 'first_name', 'last_name', 'bio', 'avatar', 'email', 'is_active',
+                  'created', 'updated']
+        # List of all the fields that can only be read by the user
+        read_only_field = ['is_active']
+-----------------------------------------
+Writing the ProfileDetails component
+src/components/profile/ProfileDetails.jsx
+
+import React from "react";
+import { Button, Image } from "react-bootstrap";
+import { useNavigate } from "react-router-dom";
+
+function ProfileDetils(props) {
+    const { user } = props;
+    const navigate = useNavigate();
+
+    if (!user) {
+        return <div>Loading...</div>;
+    }
+    return (
+        <div>
+            <div className="d-flex flex-row border-bottom p-5">
+                <Image
+                    src={user.avatar}
+                    roundedCircle
+                    width={120}
+                    className="me-5 border border-primary border-2"
+                />
+                <div className="d-flex flex-column justify-content-start align-selt-center mt-2">
+                    <p className="fs-4 m-0">
+                        {user.username}
+                    </p>
+                    <p className="fs-5">
+                        {user.bio ? user.bio :
+                            "(No bio.)"}
+                    </p>
+                    <p className="fs-6">
+                        <small>{user.posts_count} Posts</small>
+                    </p>
+                    <Button 
+                        variant="primary"
+                        size="sm"
+                        className="w-25"
+                        onClick={() =>
+                            navigate(`/profile/${user.id}/edit/`)
+                        }
+                    >
+                        Edit Profile
+                    </Button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+export default ProfileDetils;
+-----------------------------------------
+
+Now that the component is written, create a new file called Profile.jsx in the src/pages
+directory. This file will contain the code and logic for the Profile page:
+
+src/pages/Profile.jsx
+
+import React from "react";
+import { useParams } from "react-router-dom";
+import Layout from "../components/Layout";
+import ProfileDetails from "../components/profile/ProfileDetails";
+import useSWR from "swr";
+import { fetcher } from "../helpers/axios";
+import Post from "../components/posts/Post";
+import { Row, Col } from "react-bootstrap";
+
+function Profile() {
+    const { profileId } = useParams();
+    const user = useSWR(`/user/${profileId}/`, fetcher);
+
+    const posts = useSWR(`/post/?author_public_id=${profileId}`, fetcher, {
+        refreshInterval: 20000
+    });
+
+    return (
+        <Layout hasNavigationBack>
+            <Row className="justify-content-evenly">
+                <Col sm={9}>
+                    <ProfileDetails user={user.data} />
+                    <div>
+                        <Row className="my-4">
+                            {posts.data?.results.map((post, idex) => (
+                                <Post key={idex} post={post}
+                                    refresh={posts.mutate} />
+                            ))}
+                        </Row>
+                    </div>
+                </Col>
+            </Row>
+        </Layout>
+    );
+}
+
+export default Profile;
+-----------------------------------------
+Great! Let’s now register this page in the App.js file:
+
+      <Route
+        path="/profile/:profileId/"
+        element={
+          <ProtectedRoute>
+            <Profile />
+          </ProtectedRoute>
+        }
+      />
+-----------------------------------------
+Let’s not forget to add Link to the profile in the Navbar.jsx file:
+src/components/Navbar.jsx
+
+<NavDropdown.Item as={Link} to=
+    {`/profile/${user.id}/`}>Profile
+ </NavDropdown.Item>
+
+-----------------------------------------
+
+Editing user information
+modify the useUserActions Hook by adding a new method to edit user information via the 
+API
+
+Adding the edit method to useUserActions
+
+In the src/hooks/user.actions.js file, we will add another method to the useUserActions
+Hook. This function will handle the patch request to the API. As we are saving a user object in 
+localStorage, we will update the value of the object if the request succeeds
+-----------------------------------------
+
+src/hooks/user.actions.js
+
+const navigate = useNavigate();
+  const baseURL = "http://localhost:8000/api";
+
+  return {
+    login,
+    register,
+    logout,
+    edit,
+  };
+
+ // Edit the user
+  function edit(data, userId) {
+    return axiosService
+      .patch(`${baseURL}/user/${userId}/`, data, {
+        headers: {
+          "content-type": "multipart/form-data",
+        },
+      })
+      .then((res) => {
+        // Registering the account in the store
+        localStorage.setItem(
+          "auth",
+          JSON.stringify({
+            access: getAccessToken(),
+            refresh: getRefreshToken(),
+            user: res.data,
+          })
+        );
+      });
+  }
+-----------------------------------------
+
+In the src/components/UpdateProfileForm.jsx, create a file called UpdateProfileForm.
+jsx. This file will contain the code for the component used to edit user information:
+
+As we are going to include a file in the data sent to the server, we are using a FormData object. A 
+FormData object is a common way to create a bundle of data that will be sent to a server. It provides 
+a simple and easy way to construct a set of key/value pairs, representing the name of the form fields 
+and their value.
+In the case of our project, we will need to pass the data in the data variable to the formData object:
+
+ const formData = new FormData();
+
+        Objet.key(data).forEach((key) => {
+            if (data[key]) {
+                formData.append(key, data[key]);
+            }
+        });
+
+The Object constructor provides a keys method that returns the list of keys in a JavaScript object. 
+We then use the forEach method to loop through the keys array, check if data[key] value is 
+not null, and then we append the values from the data object to the formData object. We also need 
+to add a case for the avatar field:
+
+src/components/UpdateProfileForm.jsx
+
+import React, { useState, useContext } from "react";
+import { Form, Button, Image } from "react-bootstrap";
+import { useNavigate } from "react-router-dom";
+import { useUserActions } from "../..hooks/user.actions";
+import { Context} from "..Layout";
+
+function UpdateProfileForm(props) {
+
+    const { profile } = props;
+    const navigate = useNavigate();
+    const [validated, setValidated] = useState(false);
+    const [form, setForm] = useState(profile);
+    const [error, setError] = useState(null);
+    const userActions = useUserActions();
+    const [avatar, setAvatar] = useState();
+    const { toaster, setToaster } = useContext(Context);
+
+    const handleSubmit = (event) => {
+        event.prventDefault();
+        const updateProfileForm = event.currentTarget;
+
+        if (updateProfileForm.checkValidity() === false) {
+            event.stopPropagation();
+        }
+        setValidated(true);
+
+        const data = {
+            username: form.username,
+            first_name: form.first_name,
+            last_name: form.last_name,
+            bio: form.bio,
+        };
+        
+        const formData = new FormData();
+
+        // Checking for null values in the form and removing them.
+        Objet.keys(data).forEach((key) => {
+            if (data[key]) {
+                formData.append(key, data[key]);
+            }
+
+        });
+        
+        if (avatar) {
+            formData.append("avatar", avatar);
+        }
+
+        userActions
+            .edit(formData, profile.id)
+            .then(() => {
+                setToaster({
+                    type: "success",
+                    message: "profile updated successfully",
+                    show: true,
+                    title: "profile updated"
+                });
+                navigate(-1);
+            })
+            .catch((err) =>{
+                if (err.message) {
+                    setError(err.request.response);
+                }
+            })
+    }
+    return (
+        <Form
+            id="registration-form"
+            className="border p-4 rounded"
+            noValidate
+            validated={validated}
+            onsubmit={handleSubmit}
+        >
+            <Form.Group className="mb-3 d-flex flex-column">
+                <Form.Label className="text-center">Avatar</Form.Label>
+                <Image  
+                    src={form.avatar}
+                    roundedCircle
+                    width={120}
+                    height={120}
+                    className="m-2 border boder-primary border-2 align-self-center"
+                />
+                <Form.Control
+                    onChange={(e) => setAvatar(e.target.files[0])}
+                    className="w-50 align-self-center"
+                    type="file"
+                    size="sm"
+                />
+                <Form.Control.Feedback type="invalid">
+                    this file is required
+                </Form.Control.Feedback>
+            </Form.Group>
+            <Form.Group className="mb-3">
+                <Form.Label>username</Form.Label>
+                <Form.Control
+                    value={form.username}
+                    onChange={(e) => setForm({ ...form, username: e.target.value })}
+                    required
+                    type="text"
+                    placeholder="Enter username"
+                />
+                <Form.Control.Feedback type="invalid">
+                    username is required.
+                </Form.Control.Feedback>
+            </Form.Group>
+            <Form.Group className="mb-3">
+                <Form.Label>first_name</Form.Label>
+                <Form.Control
+                    value={form.first_name}
+                    onChange={(e) => setForm({ ...form, first_name: e.target.value })}
+                    required
+                    type="text"
+                    placeholder="Enter first name"
+                />
+                <Form.Control.Feedback type="invalid">
+                    first name is required.
+                </Form.Control.Feedback>
+            </Form.Group>
+            <Form.Group className="mb-3">
+                <Form.Label>last_name</Form.Label>
+                <Form.Control
+                    value={form.last_name}
+                    onChange={(e) => setForm({ ...form, last_name: e.target.value })}
+                    required
+                    type="text"
+                    placeholder="Enter last name"
+                />
+                <Form.Control.Feedback type="invalid">
+                    last name is required.
+                </Form.Control.Feedback>
+            </Form.Group>
+            <Form.Group className="mb-3">
+                <Form.Label>Bio</Form.Label>
+                <Form.Control
+                    value={form.bio}
+                    onChange={(e) => setForm({ ...form, bio: e.target.value })}
+                    required
+                    as="textarea"
+                    rows={3}
+                    placeholder="A simple bio ... (optional)"
+                />
+            </Form.Group>
+            <div className="text-context text-danger">
+                {error && <p>{error}</p>}
+            </div>
+
+            <Button variant="primary" type="submit">
+                Save changes
+            </Button>
+        </Form>
+    );
+}
+
+export default UpdateProfileForm;
+
+-----------------------------------------
+Creating the EditProfile page
+
+Inside the src/pages/ directory, create a new file called EditProfile.jsx. This file will contain 
+the code for the page that will display the form to edit information about the user:
+
+src/pages/EditProfile.jsx
+
+import React from "react";
+import { useParams } from "react-router-dom";
+import useSWR from "swr";
+import Layout from "../components/Layout";
+import UpdateProfileForm from "../components/profile/UpdateProfileForm";
+import { fetcher } from "../helpers/axios";
+import { Row, Col } from "react-bootstrap";
+
+function EditProfile() {
+  const { profileId } = useParams();
+
+  const profile = useSWR(`/user/${profileId}/`, fetcher);
+
+  return (
+    <Layout hasNavigationBack>
+      {profile.data ? (
+        <Row className="justify-content-evenly">
+          <Col sm={9}>
+            <UpdateProfileForm profile={profile.data} />
+          </Col>
+        </Row>
+      ) : (
+        <div>Loading...</div>
+      )}
+    </Layout>
+  );
+}
+
+export default EditProfile;
+-----------------------------------------
+register this page in the App.js file:
+src/App.jsx
+
+<Route
+        path="/profile/:profileId/edit/"
+        element={
+          <ProtectedRoute>
+            <EditProfile />
+          </ProtectedRoute>
+        }
+      />

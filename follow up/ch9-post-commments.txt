@@ -1,0 +1,643 @@
+Tweaking the Post component
+
+The Post component will be simply reused to display more information about the post. Following 
+the UI in Figure 9.1, we will just mask the number of comments on the post and the Comment icon.
+Inside Post.jsx, we will add another prop called isSinglePost. When this prop is true, it 
+means that we are showing the component on the SinglePost page:
+
+src/components/posts/Post.jsx
+
+
+          {!isSinglePost && (
+            <p className="ms-1 fs-6">
+              <small>
+                <Link to={`/post/${post.id}/`}>
+                  {post.comments_count} comments
+                </Link>
+              </small>
+            </p>
+          )}
+
+{!isSinglePost && (
+    <div className="d-flex flex-row">
+        <CommentOutlined
+        style={{
+            width: "24px",
+            height: "24px",
+            padding: "2px",
+            fontSize: "20px",
+            color: "#C4C4C4",
+        }}
+        />
+        <p className="ms-1 mb-0">
+        <small>Comment</small>
+        </p>
+    </div>
+    )}
+
+----------------------------------------------
+Adding a back button to the Layout component
+
+The back button has the role of navigating the user to the preceding page if the action is initiated. An 
+interesting idea about doing that is to add the actual path to the component where a go-back action 
+can happen. However, it’ll require a lot of code and will introduce some complexity.
+Thankfully, the react-router library provides a simple way to navigate to the preceding page in 
+just one line:
+navigate(-1)
+Yes! Let’s add this function to the Layout.jsx component:
+----------------------------------------------
+src/components/Layout.jsx
+
+import React from "react";
+import { Outlet } from "react-router-dom"
+import Navigationbar from "./Navbar";
+import React, { createContext, useMemo, useState } from "react";
+import { ArrowLeftOutlined } from "@ant-design/icons";
+import { useNavigate } from "react-router-dom";
+
+export const Context = createContext("unknown");
+
+function Layout(props) {
+    const { hasNavigationBack } = props;
+    const navigate = useNavigate();
+    const [toaster, setToaster] = useState({
+        title: "",
+        show: false,
+        message: "",
+        type: "",
+    });
+
+    const value = useMemo(() => ({ toaster, setToaster }), [toaster]);
+
+    return (
+        <Context.provider value={value}>
+            <div>
+                <Navigationbar />
+                {hasNavigationBack && (
+                    <ArrowLeftOutlined
+                        style={{
+                            color: "#0D6EFD",
+                            fontSize: "24px",
+                            marginLeft: "5%",
+                            marginTop: "1%",
+                        }}
+                        onClick={() => navigate(-1)}
+                    />
+                )}
+                <div className="container m-5">{props.children}</div>
+                
+                <Outlet />
+            </div>
+            <toaster
+                title={toaster.title}
+                message={toaster.message}
+                type={toaster.type}
+                showToast={toaster.show}
+                onClose={() => setToaster({ ...toaster, show: false})}
+            />
+        </Context.provider>
+        
+    );
+}
+
+export default Layout;
+
+----------------------------------------------
+In the preceding code, we added a prop called hasNavigationBack. This prop will tell React 
+whether it should render the icon to nagivate back to the precedent page. The rendering process is 
+done in the JSX code, using conditional. If hasNavigationBack is true, we show the Back icon, 
+and the user can navigate.
+----------------------------------------------
+
+Creating the SinglePost component
+
+src/pages/SinglePost.jsx
+
+import React from "react";
+
+import Layout from "../components/Layout";
+import { Row, Col } from "react-bootstrap";
+import { useParams } from "react-router-dom";
+import useSWR from "swr";
+import { fetcher } from "../helpers/axios";
+import Post from "../components/posts";
+import CreateComment from "../components/comments/CreateComment";
+import Comment from "../components/comments/Comment";
+
+function SinglePost() {
+  const { postId } = useParams();
+
+  const post = useSWR(`/post/${postId}/`, fetcher);
+
+  const comments = useSWR(`/post/${postId}/comment/`, fetcher);
+
+  return (
+    <Layout hasNavigationBack>
+      {post.data ? (
+        <Row className="justify-content-center">
+          <Col sm={8}>
+            <Post post={post.data} refresh={post.mutate} isSinglePost />
+            <CreateComment postId={post.data.id} refresh={comments.mutate} />
+            {comments.data &&
+              comments.data.results.map((comment, index) => (
+                <Comment
+                  key={index}
+                  postId={post.data.id}
+                  comment={comment}
+                  refresh={comments.mutate}
+                />
+              ))}
+          </Col>
+        </Row>
+      ) : (
+        <div>Loading...</div>
+      )}
+    </Layout>
+  );
+}
+
+export default SinglePost;
+----------------------------------------------
+We are also using a new Hook, useParams. As stated in the official documentation, the useParams
+Hook returns an object of key/value pairs of the dynamic params from the current URL that was 
+matched by <Route path>. Child routes inherit all parameters from their parent routes.
+A little bit complicated to grasp, but let’s register this page and load it in the browser. Inside the App.
+jsx file, add a new route:
+
+src/App.jsx
+
+ <Route
+    path="/post/:post:Id/"
+    element={
+        <ProtectedRoute>
+        <SinglePost />
+        </ProtectedRoute>
+    }
+/>
+
+----------------------------------------------
+The path of the newly added route has an interesting pattern with the addition of postId. We can tell 
+react-router to expect a parameter that will be passed, and this parameter will then be available 
+in the useParams Hook.
+
+----------------------------------------------
+Let’s add the redirection to the SinglePost page in the Post component:
+
+src/components/posts/CreatePost.jsx
+
+import React, { useState } from "react";
+import { Button, Modal, Form } from "react-bootstrap";
+import axiosService from "../../helpers/axios";
+import { getUser } from "../../hooks/user.actions";
+import Toaster from "../Toaster";
+
+function CreatePost(props) {
+  const { refresh } = props;
+  const [show, setShow] = useState(false);
+  const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState("");
+  const [toastType, setToastType] = useState("");
+  const [validated, setValidated] = useState(false);
+  const [form, setForm] = useState({});
+
+  const user = getUser();
+
+  const handleClose = () => setShow(false);
+  const handleShow = () => setShow(true);
+
+  const handleSubmit = (event) => {
+    event.preventDefault();
+    const createPostForm = event.currentTarget;
+
+    if (createPostForm.checkValidity() === false) {
+      event.stopPropagation();
+    }
+
+    setValidated(true);
+
+    const data = {
+      author: user.id,
+      body: form.body,
+    };
+
+    axiosService
+      .post("/post/", data)
+      .then(() => {
+        handleClose();
+        setToastMessage("Post created");
+        setToastType("success");
+        setForm({});
+        setShowToast(true);
+        refresh();
+      })
+      .catch(() => {
+        setToastMessage("An error occurred.");
+        setToastType("danger");
+      });
+  };
+
+  return (
+    <>
+      <Form.Group className="my-3 w-75">
+        <Form.Control
+          className="py-2 rounded-pill border-primary text-primary"
+          type="text"
+          placeholder="Write a post"
+          onClick={handleShow}
+        />
+      </Form.Group>
+
+      <Modal show={show} onHide={handleClose}>
+        <Modal.Header closeButton className="border-0">
+          <Modal.Title>Create Post</Modal.Title>
+        </Modal.Header>
+        <Modal.Body className="border-0">
+          <Form noValidate validated={validated} onSubmit={handleSubmit}>
+            <Form.Group className="mb-3">
+              <Form.Control
+                name="body"
+                value={form.body}
+                onChange={(e) => setForm({ ...form, body: e.target.value })}
+                as="textarea"
+                rows={3}
+              />
+            </Form.Group>
+          </Form>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button
+            variant="primary"
+            onClick={handleSubmit}
+            disabled={form.body === undefined}
+          >
+            Post
+          </Button>
+        </Modal.Footer>
+      </Modal>
+      <Toaster
+        title="Post!"
+        message={toastMessage}
+        showToast={showToast}
+        type={toastType}
+        onClose={() => setShowToast(false)}
+      />
+    </>
+  );
+}
+
+export default CreatePost;
+----------------------------------------------
+Creating a comment
+
+CreateComment.jsx. This component represents the form that the user 
+will use to add comments to a post.
+
+src/components/comments/CreateComment.jsx
+
+import React, { useState, useContext } from "react";
+import {Button, Form, Image } from "react-bootstrap";
+import axiosService from "../../helpers/axios";
+import { getUser } from "../../hooks/user.actions";
+import { randomAvatar } from "../..utils"
+import { Context } from "../Layout";
+
+function CreateComment(props) {
+    const { postId, refresh } = props
+    const [avatar, setAvatar] = useState(randomAvatar());
+    const [validated, setValidated] = useState(false);
+    const [form, setForm] = useState({});
+
+    const { toaster, setToaster } = userContext(Context);
+
+    const user = getUser
+
+    const handleSubmit = (event) => {
+        // Logic to handle form submision
+        event.preventDefault();
+        const createCommentForm = event.currentTarget;
+        if (createCommentForm.checkValidity() === false) {
+            event.stopPropagation();
+        }
+        setValidated(true);
+
+        const data = {
+            author: user.id,
+            body: form.body,
+            post: postId,
+        };
+
+        axiosService
+            .post(`/post/${postId}/comment/`, data)
+            .then(() => {
+                setForm({ ...Form, body: "" });
+                setToaster({
+                    type: "success",
+                    message: "Comment posted successfully",
+                    show: ture,
+                    title: "Comment!",
+                });
+                refresh();
+            })
+            .catch(() => {
+                setToaster({
+                    type: "danger",
+                    message: "",
+                    show: true,
+                    title: "An error occured.!",
+                });
+            });
+    };
+
+    return (
+        <Form
+            className="d-flex flex-row justify-content-between"
+            noValidate
+            validated={validated}
+            onSubmit={handleSubmit}
+        >
+            <Image
+                src={avatar}
+                roundedCircle
+                width={48}
+                height={48}
+                className="my-2"
+            />
+            <Form.Group className="m-3 w-75">
+                <Form.Control
+                    className="py-2 rounded-pill borber-primary"
+                    type="text"
+                    placeholder="Write a comment"
+                    value={form.body}
+                    name="body"
+                    onChange={(e) => setForm({ ...form, body: e.target.value })}
+                />
+            </Form.Group>
+            <div className="m-auto">
+                <Button
+                    variant="primary"
+                    onClick={handleSubmit}
+                    disabled={ form.body === undefined}
+                    size="small"
+                >
+                    Comment
+                </Button>
+            </div>
+
+        </Form>
+    );
+}
+
+export default CreateComment;
+
+----------------------------------------------
+check the SinglePost page if it has the following code
+
+import React from "react";
+
+import Layout from "../components/Layout";
+import { Row, Col } from "react-bootstrap";
+import { useParams } from "react-router-dom";
+import useSWR from "swr";
+import { fetcher } from "../helpers/axios";
+import Post from "../components/posts/Post";
+import CreateComment from "../components/comments/CreateComment";
+import Comment from "../components/comments/Comment";
+
+function SinglePost() {
+
+  const { postId } = useParams();
+
+  const post = useSWR(`/post/${postId}/`, fetcher);
+  console.log(useParams());
+
+  const comments = useSWR(`/post/${postId}/comment/`, fetcher);
+
+  return (
+    <Layout hasNavigationBack>
+      {post.data ? (
+        <Row className="justify-content-center">
+          <Col sm={8}>
+            <Post post={post.data} refresh={post.mutate} isSinglePost />
+            <CreateComment postId={post.data.id} refresh={comments.mutate} />
+            {comments.data &&
+              comments.data.results.map((comment, index) => (
+                <Comment
+                  key={index}
+                  postId={post.data.id}
+                  comment={comment}
+                  refresh={comments.mutate}
+                />
+              ))}
+          </Col>
+        </Row>
+      ) : (
+        <div>Loading...</div>
+      )}
+    </Layout>
+  );
+}
+
+export default SinglePost;
+----------------------------------------------
+Listing the comments
+
+We can create comments, but we can’t see them. In src/components/comments, create a new 
+file called CreateComment.jsx. This will contain the code for the Comment component that will 
+be used to show details about a comment. Here’s a wireframe of the Comment component:
+
+src/components/comments/CreateComment.jsx
+
+import React, { useState, useContext } from "react";
+import {Button, Form, Image } from "react-bootstrap";
+import axiosService from "../../helpers/axios";
+import { getUser } from "../../hooks/user.actions";
+import { randomAvatar } from "../../utils";
+import { Context } from "../Layout";
+
+function CreateComment(props) {
+    const { postId, refresh } = props
+    const [avatar, setAvatar] = useState(randomAvatar());
+    const [validated, setValidated] = useState(false);
+    const [form, setForm] = useState({});
+
+    const { toaster, setToaster } = useContext(Context);
+
+
+    const user = getUser()
+
+    const handleSubmit = (event) => {
+       
+        event.preventDefault();
+        const createCommentForm = event.currentTarget;
+        if (createCommentForm.checkValidity() === false) {
+            event.stopPropagation();
+        }
+        setValidated(true);
+
+        const data = {
+            author: user.id,
+            body: form.body,
+            post: postId,
+        };
+
+        axiosService
+            .post(`/post/${postId}/comment/`, data)
+            .then(() => {
+                setForm({ ...form, body: "" });
+                setToaster({
+                    type: "success",
+                    message: "Comment posted successfully",
+                    show: true,
+                    title: "Comment!",
+                });
+                refresh();
+            })
+            .catch(() => {
+                setToaster({
+                    type: "danger",
+                    message: "",
+                    show: true,
+                    title: "An error occured.!",
+                });
+            });
+    };
+
+    return (
+        <Form
+            className="d-flex flex-row justify-content-between"
+            noValidate
+            validated={validated}
+            onSubmit={handleSubmit}
+        >
+            <Image
+                src={avatar}
+                roundedCircle
+                width={48}
+                height={48}
+                className="my-2"
+            />
+            <Form.Group className="m-3 w-75">
+                <Form.Control
+                    className="py-2 rounded-pill border-primary"
+                    type="text"
+                    placeholder="Write a comment"
+                    value={form.body}
+                    name="body"
+                    onChange={(e) => setForm({ ...form, body: e.target.value })}
+                />
+            </Form.Group>
+            <div className="m-auto">
+                <Button
+                    variant="primary"
+                    onClick={handleSubmit}
+                    disabled={ form.body === undefined}
+                    size="small"
+                >
+                    Comment
+                </Button>
+            </div>
+
+        </Form>
+    );
+}
+
+export default CreateComment;
+
+----------------------------------------------
+Updating a comment
+Adding the UpdateComment modal
+
+src/components/comments/UpdateComment.jsx
+
+import React, { useState, useContext } from "react";
+import { Button, Modal, Form, Dropdown } from "react-bootstrap";
+import axiosService from "../../helpers/axios";
+
+import { Context } from "../Layout";
+
+function UpdateComment(props) {
+  const { postId, comment, refresh } = props;
+  const [show, setShow] = useState(false);
+  const [validated, setValidated] = useState(false);
+  const [form, setForm] = useState({
+    author: comment.author.id,
+    body: comment.body,
+    post: postId,
+  });
+
+  const { setToaster } = useContext(Context);
+
+  const handleClose = () => setShow(false);
+  const handleShow = () => setShow(true);
+
+  const handleSubmit = (event) => {
+    event.preventDefault();
+    const updateCommentForm = event.currentTarget;
+
+    if (updateCommentForm.checkValidity() === false) {
+      event.stopPropagation();
+    }
+
+    setValidated(true);
+
+    const data = {
+      author: form.author,
+      body: form.body,
+      post: postId,
+    };
+
+    axiosService
+      .put(`/post/${postId}/comment/${comment.id}/`, data)
+      .then(() => {
+        handleClose();
+        setToaster({
+          type: "success",
+          message: "Comment updated 🚀",
+          show: true,
+          title: "Success!",
+        });
+        refresh();
+      })
+      .catch(() => {
+        setToaster({
+          type: "danger",
+          message: "An error occurred.",
+          show: true,
+          title: "Comment Error",
+        });
+      });
+  };
+
+  return (
+    <>
+      <Dropdown.Item onClick={handleShow}>Modify</Dropdown.Item>
+
+      <Modal show={show} onHide={handleClose}>
+        <Modal.Header closeButton className="border-0">
+          <Modal.Title>Update Post</Modal.Title>
+        </Modal.Header>
+        <Modal.Body className="border-0">
+          <Form noValidate validated={validated} onSubmit={handleSubmit}>
+            <Form.Group className="mb-3">
+              <Form.Control
+                name="body"
+                value={form.body}
+                onChange={(e) => setForm({ ...form, body: e.target.value })}
+                as="textarea"
+                rows={3}
+              />
+            </Form.Group>
+          </Form>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="primary" onClick={handleSubmit}>
+            Modify
+          </Button>
+        </Modal.Footer>
+      </Modal>
+    </>
+  );
+}
+
+export default UpdateComment;
+----------------------------------------------

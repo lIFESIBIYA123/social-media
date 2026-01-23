@@ -52,6 +52,10 @@ INSTALLED_APPS = [
     'core.comment',
 ]
 
+DEFAULT_AVATAR_URL = "https://api.dicebear.com/7.x/identicon/svg"
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework_simplejwt.authentication.JWTAuthentication',

@@ -3,10 +3,11 @@ from rest_framework.permissions import IsAuthenticated
 from core.abstract.viewsets import AbstractViewSet
 from core.user.serializers import UserSerializer
 from core.user.models import User
+from core.auth.permissions import UserPermission
 
 class UserViewSet(AbstractViewSet):
     http_method_names = ('patch', 'get')
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated, UserPermission)
     serializer_class = UserSerializer
 
     # gets the list of all users
