@@ -1,0 +1,60 @@
+yarn add @faker-js/faker uuid –dev
+
+Faker is a JavaScript package used to generate fake, but realistic, data. In the React project, 
+use the following command to install the package as a development dependency
+------------------------------------
+Writing testing fixtures
+
+In the src/helpers directory, create a new directory called fixtures. This directory will contain 
+JavaScript files containing functions that return fixtures that can be used for testing.
+We’ll start by writing fixtures for a user. So, in the fixtures directory, create a new file called user.
+js. This file will contain code for a function that returns realistic data for a user object. Let’s start with 
+the imports of functions from the faker.js and uuid packages to create a fixture:
+------------------------------------
+src/helpers/fixtures/user.js
+
+import { faker } from "@faker-js/faker";
+import { v4 as uuid4 } from "uuid";
+
+function userFixtures() {
+  const firstName = faker.name.firstName();
+  const lastName = faker.name.lastName();
+
+  return {
+    id: uuid4(),
+    first_name: firstName,
+    last_name: lastName,
+    name: firstName + " " + lastName,
+    post_count: Math.floor(Math.random() * 10),
+    email: `${firstName}@yopmail.com`,
+    bio: faker.lorem.sentence(20),
+    username: firstName + lastName,
+    avatar: null,
+    created: faker.date.recent(),
+    updated: faker.date.recent(),
+  };
+}
+
+export default userFixtures;
+------------------------------------
+faker.name to generate random names, faker.lorem to generate random lorem 
+texts, and faker.date to generate a recent date. The object returned by userFixtures now has 
+the closest structure to a user object returned by the Django API we have created, and this is exactly 
+what we want.
+------------------------------------
+Running the first test
+
+When a React application is created, the App.js file comes with a test file called App.test.js, 
+which you can see here:
+------------------------------------
+src/App.test.js
+
+import { render, screen } from "./helpers/test-utils";
+import App from "./App";
+
+test("renders Welcome to Postagram text", () => {
+  render(<App />);
+  const linkElement = screen.getByText(/Welcome to Postagram!/i);
+  expect(linkElement).toBeInTheDocument();
+});
+------------------------------------
