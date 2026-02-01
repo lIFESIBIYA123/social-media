@@ -1,0 +1,95 @@
+we will deploy the backend on AWS, mostly on an Elastic Compute Cloud (EC2) 
+instance, which is just a fancy name for a VPS. Well, actually, an AWS EC2 instance is a virtual server 
+in Amazon’s EC2 for running web applications. Let’s start by creating the AWS server.
+
+Important note
+The following steps can work for any VPS, not just for an AWS VPS. If you can’t create a VPS 
+on AWS, you can see other solutions such as Linode, Google Cloud Platform (GCP), Azure, 
+or IBM. They provide free credit you can use for learning about their services.
+
+Creating an EC2 instance
+
+    Follow these steps to create an EC2 instance:
+        1. Make sure to be logged in to your AWS account. On the dashboard, open the EC2 console:
+        2. On the EC2 console, launch a new instance:
+        3. Enter the name of the instance:
+        4. The next step is to choose an operating system. We will use Ubuntu Server 22.04 LTS for the 
+            Amazon Machine Image (AMI):
+
+            We are using Ubuntu here because of its security, versatility, and the policy of regular updates.
+
+        5. And finally, you will need to set the instance type and create a pair of keys for Secure Shell
+            (SSH) login. After that, you can launch the instance:
+
+        6. Wait a moment, and the instance will be created:
+        7. Click on the View all instances button, and you will see the created Postagram instance.
+        8. Click on the checkbox next to the name of the instance and click the Connect button:
+
+            This will redirect you to a page with the information and steps needed to connect via SSH:
+
+        9. In your terminal, type the following command to connect via SSH:
+                ssh -i path/to/your_keypair.pem ec2-user@ipaddress
+                run: 
+                chmod 400 Gls.pem
+
+                ssh -i GLS.pem ec2-user@54.82.138.3
+
+                if the .pem file is reachable move it so that linux can run it :
+                    mkdir -p ~/.ssh
+                    cp "/mnt/c/Users/Autocrat Tech/Desktop/projects/social-media/GLS.pem" ~/.ssh/
+                    chmod 400 ~/.ssh/GLS.pem
+
+                Verify:
+                    ls -l ~/.ssh/GLS.pem
+
+                SSH Using the New Path:
+                    ssh -i ~/.ssh/GLS.pem ec2-ubuntu@54.82.138.3
+
+############# Professional Setup ######################
+Create an SSH config so you never type the full command again:
+
+    nano ~/.ssh/config
+
+    Host my-ec2
+        HostName 54.82.138.3
+        User ec2-user
+        IdentityFile ~/.ssh/GLS.pem
+
+Save and exit, then connect with:
+    ssh my-ec2
+
+        10. Once you are connected to the server, we will configure it to have a Django backend running 
+            on this machine and accessible from the internet:
+                sudo apt update
+                sudo apt upgrade
+            The preceding commands update the apt packages index of Ubuntu packages and upgrade 
+            all packages on the server.
+            The Django project will run on port 8000 on the machine, so we have to allow a connection to 
+            this port. By default, EC2 instances will only allow connections on ports 80 for HTTP requests, 
+            22 for SSH connections, and—sometimes—443 for Secure Sockets Layer (SSL) connections.
+
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+
+You can allow connections on port 8000 directly on the Details page of the created EC2 
+instance to access the Security tab on the list of tabs at the bottom of the page and click on the 
+security setting group:
+
+On the security group setting, access the Actions menu and click on Edit inbound rules. You 
+will have access to a page where you can add a new rule, as follows:
+     The type of connection is set to Custom TCP
+     The port range is set to 8000
+     The source is set to 0.0.0.0 to indicate that all requests should be redirected to the 
+    machine on port 8000
+     And finally, add a default description to not forget why we have added this rule
+Click on Save rules to save the changes and allow the EC2 instance to accept connections on 
+port 8000:
+
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+
+Configuring the server for the Django project
+
+The source code for the Django project is hosted on GitHub. It’s definitely possible to directly use scp to 
+copy the code from your machine to the remote machine but let’s go with Git, as it will be an important 
+command of our workflow. On the terminal of the remote instance, enter the following command:
+
+    git clone your_repository_git_url
