@@ -25,7 +25,8 @@ SECRET_KEY = 'django-insecure-%##aecv2(=lj8$^4jnhr7kzzfku68o#nnv@@q(ib9l$8q2_a=p
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+# ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['54.82.138.3', 'localhost', '127.0.0.1']
 
 AUTH_USER_MODEL = 'core_user.User' # tells django to use our models
 # Application definition

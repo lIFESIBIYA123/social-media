@@ -93,3 +93,118 @@ copy the code from your machine to the remote machine but let’s go with Git, a
 command of our workflow. On the terminal of the remote instance, enter the following command:
 
     git clone your_repository_git_url
+    https://github.com/lIFESIBIYA123/social-media.git
+
+1. First of all, create a virtual environment with the following command:
+    python3 -m venv venv
+2. And activate the virtual environment with the following command:
+    source venv/bin/activate
+3. Let’s install the packages from the requirements.txt file:
+    pip install -r requirements.txt
+
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+
+COMMANDS TO SETUP linux
+
+# Update package list to get latest package information
+sudo apt update
+
+# Install PostgreSQL development libraries (needed for psycopg2)
+sudo apt install libpq-dev python3-dev
+
+# Install image processing libraries (needed for Pillow)
+sudo apt install libjpeg-dev zlib1g-dev
+
+# Install C/C++ compiler and build tools (needed to compile Python packages from source)
+sudo apt install build-essential
+
+# Install PostgreSQL server and client
+sudo apt install postgresql postgresql-contrib
+
+# Install all Python packages listed in requirements.txt
+pip install -r requirements.txt
+
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+
+Postgres configuration and deployment
+
+install the Postgres server on the EC2 machine:
+
+1. Enter the following command to install the Postgres server:
+    sudo apt install postgresql-14
+2. Let’s connect to the psql console and create a database:
+    sudo su postgres 
+    psql
+
+##########################################################################
+
+# ===== SSH CONNECTION =====
+# Connect to EC2 instance using SSH key
+ssh -i ~/.ssh/GLS.pem ubuntu@54.82.138.3
+
+# ===== INSTALL SYSTEM DEPENDENCIES =====
+# Update package list
+sudo apt update
+
+# Install Python virtual environment package
+sudo apt install python3.12-venv
+
+# Install PostgreSQL development libraries (needed for psycopg2)
+sudo apt install libpq-dev python3-dev
+
+# Install image processing libraries (needed for Pillow)
+sudo apt install libjpeg-dev zlib1g-dev
+
+# Install C/C++ compiler and build tools (needed to compile Python packages)
+sudo apt install build-essential
+
+# Install PostgreSQL database server
+sudo apt install postgresql postgresql-contrib
+
+# ===== SETUP POSTGRESQL DATABASE =====
+# Switch to postgres user and open PostgreSQL prompt
+sudo -u postgres psql
+
+# Create database user 'core' with password
+CREATE USER core WITH PASSWORD 'Gershom@sibiya123';
+
+# Create database 'coredb'
+CREATE DATABASE coredb;
+
+# Grant all privileges on coredb to core user
+GRANT ALL PRIVILEGES ON DATABASE coredb TO core;
+
+# Grant permissions on public schema
+GRANT ALL ON SCHEMA public TO core;
+
+# Make core the owner of coredb database
+ALTER DATABASE coredb OWNER TO core;
+
+# Exit PostgreSQL prompt
+\q
+
+# ===== SETUP PYTHON VIRTUAL ENVIRONMENT =====
+# Navigate to home directory
+cd ~
+
+# Create Python virtual environment
+python3 -m venv venv
+
+# Activate virtual environment
+source venv/bin/activate
+
+# ===== INSTALL PYTHON DEPENDENCIES =====
+# Navigate to project directory
+cd social-media
+
+# Install setuptools (provides pkg_resources)
+pip install setuptools
+
+# Install all Python packages from requirements.txt
+pip install -r requirements.txt
+
+# ===== RUN DJANGO MIGRATIONS =====
+# Create database tables from Django models
+python manage.py migrate
+
+##################################################################
