@@ -208,3 +208,31 @@ pip install -r requirements.txt
 python manage.py migrate
 
 ##################################################################
+
+However, we have a lot of issues (we can access debugging information directly on the internet, as in 
+Figure 12.17), and we made some dangerous decisions such as not serving the API through HTTPS 
+or not correctly setting allowed hosts throughout the deployment. Let’s explore these issues in the 
+next section
+
+Errors made when deploying on EC2
+
+Let’s start with the errors that Django can show us. In the terminal of the project on 
+the remote server, run the following command:
+
+python manage.py check –deploy
+
+That’s a lot of things. As we are building an API, let’s focus on the security issues that concern our API:
+
+    • SECRET_KEY: This is an important setting in Django. It is used for all sessions, cryptographic 
+        signings, and even PasswordReset tokens. Having an already set value for SECRET_KEY
+        can lead to dangerous security issues such as privilege escalation and remote code execution.
+
+    • DEBUG, which is set to True. That is basically why we were able to see the DisallowedHost
+        error. Imagine an attacker going through your API, causing a 500 error, and then being able 
+        to read everything. That would be very bad.
+
+
+Important note
+You can read more about HTTP Host header attacks at https://www.invicti.com/
+web-vulnerability-scanner/vulnerabilities/http-header-injection/.
+

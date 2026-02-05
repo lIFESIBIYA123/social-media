@@ -1,4 +1,2 @@
-
-.venv
-.git
-.gitignore
+env
+social-media-react
