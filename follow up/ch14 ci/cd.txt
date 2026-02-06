@@ -1,0 +1,92 @@
+download and instll OpenSSH client
+
+Step-by-Step (GUI Method)
+
+Open Settings
+
+Press Windows + I
+
+Go to:
+
+Apps → Optional features
+
+
+Click “Add a feature”
+
+Search for OpenSSH Client
+
+Click Install
+
+Restart your PC (important — we’ve seen SSH not load until reboot)
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+
+Defining the CI/CD workflow
+
+1. A push is made on the principal branch of the server.
+2. Docker containers are built and started to run tests. If the tests fail, the following steps are ignored.
+3. We connect via SSH to the server and run a script to pull the new changes from the remote 
+repository, build the containers, and restart the services using docker-compose.
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+
+What is GitHub Actions?
+GitHub Actions is a service built and developed by GitHub for automating builds, testing, and 
+deployment pipelines.
+
+GitHub Actions configurations are made in a file that must be stored in a dedicated directory in the 
+repository called .github/workflows. For a better workflow, we will also use GitHub secrets to 
+store deployment information such as the IP address of the server, the SSH passphrase, and the server 
+username.
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+
+How to write a GitHub Actions workflow file
+
+Workflow files are stored in a dedicated directory called .github/workflows. The syntax used 
+for these files is YAML syntax, hence workflow files have the .yml extension.
+
+Let’s dive deeper into the syntax of a workflow file:
+• name: This represents the name of the workflow. This name is set by placing the following line 
+at the beginning of the file:
+name: Name of the Workflow
+• on: This specifies the events that will trigger the workflow automatically. An example of an 
+event is a push, a pull request, or a fork:
+on: push
+• jobs: This specifies the actions that the workflow will perform. You can have multiple jobs 
+and even have some jobs depending on each other:
+    jobs:
+      build-test:
+        runs-on: ubuntu-latest
+        steps:
+        - uses: actions/checkout@v2
+        - name: Listing files in a directory
+         run: ls -a
+In our GitHub Actions workflow, we will have two jobs:
+ A job named build-test to build the Docker containers and run the tests inside 
+those containers
+ A job named deploy to deploy the application to the AWS server
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+
+Configuring the backend for automated deployment
+
+Adding the GitHub Actions file
+
+.github/workflows/ci-cd.yml
+
+name: Build, Test and Deploy Postagram
+on:
+ push:
+   branches: [ main ]
+
+----------------------------------------------------------------------------------
+
+The workflow will run every time there is a push on the main branch. Let’s go on to write a build
+test job. For this job, we will follow three steps:
+
+1. Injecting environment variables into a file. Docker will need a .env file to build the images and 
+    start the containers. We’ll inject dummy environment variables into the Ubuntu environment.
+2. After that, we will build the containers.
+3. And finally, we run the tests on the api container.
+
+**********************************************************************************
+
+1. Let’s start by writing the job and injecting the environment variables:
+
