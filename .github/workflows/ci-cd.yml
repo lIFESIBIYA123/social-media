@@ -26,11 +26,23 @@ jobs:
           echo "ENV=TESTING" >> .env
           echo "DJANGO_ALLOWED_HOSTS=127.0.0.1,localhost" >> .env
 
-
-      - name: Building containers
+      - name: Build containers
         run: | 
           docker-compose up -d --build
 
-      - name: Running Tests
+      - name: Wait for database to be ready
+        run: |
+          timeout 60 bash -c 'until docker-compose exec -T db pg_isready -U test_core; do sleep 2; done'
+
+      - name: Run migrations
+        run: |
+          docker-compose exec -T api python manage.py migrate
+
+      - name: Run tests
         run: |
           docker-compose exec -T api pytest
+
+      - name: Cleanup
+        if: always()
+        run: |
+          docker-compose down -v
