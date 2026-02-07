@@ -12,6 +12,13 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
+      - name: Free up disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /opt/ghc
+          sudo rm -rf "/usr/local/share/boost"
+          sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+
       - name: Inject test environment variables
         run: |
           echo "SECRET_KEY=test_foo" >> .env
@@ -28,7 +35,8 @@ jobs:
 
       - name: Build containers
         run: | 
-          docker compose up -d --build
+          docker compose build
+          docker compose up -d
 
       - name: Wait for database to be ready
         run: |
@@ -36,7 +44,7 @@ jobs:
 
       - name: Run migrations
         run: |
-          docker compose exec -T api python manage.py migrate
+          docker compose exec -T api python manage.py migrate --no-input
 
       - name: Run tests
         run: |
