@@ -28,21 +28,21 @@ jobs:
 
       - name: Build containers
         run: | 
-          docker-compose up -d --build
+          docker compose up -d --build
 
       - name: Wait for database to be ready
         run: |
-          timeout 60 bash -c 'until docker-compose exec -T db pg_isready -U test_core; do sleep 2; done'
+          timeout 60 bash -c 'until docker compose exec -T db pg_isready -U test_core; do sleep 2; done'
 
       - name: Run migrations
         run: |
-          docker-compose exec -T api python manage.py migrate
+          docker compose exec -T api python manage.py migrate
 
       - name: Run tests
         run: |
-          docker-compose exec -T api pytest
+          docker compose exec -T api pytest
 
       - name: Cleanup
         if: always()
         run: |
-          docker-compose down -v
+          docker compose down -v
