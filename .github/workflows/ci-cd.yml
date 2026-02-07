@@ -12,21 +12,16 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Inject environment variables
+      - name: Inject test environment variables
         run: |
-          cat <<EOF > .env
-          SECRET_KEY=test_foo
-          DATABASE_NAME=test_coredb
-          DATABASE_USER=test_core
-          DATABASE_PASSWORD=12345678
-          DATABASE_HOST=test_postagram_db
-          DATABASE_PORT=5432
-          POSTGRES_USER=test_core
-          POSTGRES_PASSWORD=12345678
-          POSTGRES_DB=test_coredb
-          ENV=TESTING
-          DJANGO_ALLOWED_HOSTS=127.0.0.1,localhost
-          EOF
-
-      - name: Verify .env file
-        run: cat .env
+          echo "SECRET_KEY=test_foo" >> .env
+          echo "DATABASE_NAME=test_coredb" >> .env
+          echo "DATABASE_USER=test_core" >> .env
+          echo "DATABASE_PASSWORD=12345678" >> .env
+          echo "DATABASE_HOST=test_postagram_db" >> .env
+          echo "DATABASE_PORT=5432" >> .env
+          echo "POSTGRES_USER=test_core" >> .env
+          echo "POSTGRES_PASSWORD=12345678" >> .env
+          echo "POSTGRES_DB=test_coredb" >> .env
+          echo "ENV=TESTING" >> .env
+          echo "DJANGO_ALLOWED_HOSTS=127.0.0.1,localhost" >> .env
