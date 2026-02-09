@@ -35,8 +35,7 @@ jobs:
 
       - name: Build containers
         run: | 
-          docker compose build
-          docker compose up -d
+          docker compose up -d --build
 
       - name: Running Testss
         run: | 
