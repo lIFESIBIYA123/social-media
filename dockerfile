@@ -1,23 +1,23 @@
-FROM python:3.10-slim
+# pull official base image
+FROM python:3.10-alpine
 
+# set work directory
 WORKDIR /app
 
-ENV PIP_DISABLE_PIP_VERSION_CHECK=1
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
+# set environment variables
+ENV PYTHONDONTWRITEBYTECODE 1
+ENV PYTHONUNBUFFERED 1
 
-# system dependencies
-RUN apt-get update && apt-get install -y \
-    build-essential \
-    libpq-dev \
-    libjpeg-dev \
-    zlib1g-dev \
-    && rm -rf /var/lib/apt/lists/*
+# install psycopg2 dependencies
+RUN apk update \
+   && apk add postgresql-dev gcc musl-dev jpeg-dev zlib-dev
 
-# python dependencies
-COPY requirements.txt .
-RUN pip install --upgrade pip setuptools wheel \
-    && pip install --default-timeout=100 --retries=10 --no-cache-dir -r requirements.txt
+# install python dependencies
+COPY requirements.txt /app/requirements.txt
+RUN pip install --upgrade pip
+RUN pip install -U setuptools
+RUN pip install --no-cache-dir -r requirements.txt
 
-# project files
+
+# copy project
 COPY . .
