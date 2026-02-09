@@ -39,9 +39,8 @@ jobs:
 
       - name: Running Testss
         run: | 
-          docker compose up -d db
-          docker compose run --rm api pytest --maxfail=1 -- disable-warnings
-
+          docker-compose exec -T api pytest
+          
       # - name: Wait for database to be ready
       #   run: |
       #     timeout 60 bash -c 'until docker compose exec -T db pg_isready -U test_core; do sleep 2; done'
