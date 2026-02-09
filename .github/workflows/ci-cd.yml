@@ -38,21 +38,25 @@ jobs:
           docker compose build
           docker compose up -d
 
-      - name: Wait for database to be ready
-        run: |
-          timeout 60 bash -c 'until docker compose exec -T db pg_isready -U test_core; do sleep 2; done'
+      - name: Running Tests
+        run: | 
+          docker compose exec -T api pytest
 
-      - name: Run tests
-        run: |
-          docker compose exec -T api pytest -v --tb=short
+      # - name: Wait for database to be ready
+      #   run: |
+      #     timeout 60 bash -c 'until docker compose exec -T db pg_isready -U test_core; do sleep 2; done'
 
-      - name: Show logs on failure
-        if: failure()
-        run: |
-          docker compose logs api
-          docker compose logs db
+      # - name: Run tests
+      #   run: |
+      #     docker compose exec -T api pytest -v --tb=short
 
-      - name: Cleanup
-        if: always()
-        run: |
-          docker compose down -v
+      # - name: Show logs on failure
+      #   if: failure()
+      #   run: |
+      #     docker compose logs api
+      #     docker compose logs db
+
+      # - name: Cleanup
+      #   if: always()
+      #   run: |
+      #     docker compose down -v
