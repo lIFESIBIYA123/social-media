@@ -38,7 +38,7 @@ jobs:
           docker compose build
           docker compose up -d
 
-      - name: Running Tests
+      - name: Running Testss
         run: | 
           docker compose exec -T api pytest
 
