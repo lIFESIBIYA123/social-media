@@ -21,11 +21,11 @@ class TestAuthenticationViewSet:
     @pytest.mark.django_db
     def test_register(self, client):
         data = {
-            "username": "johndoe",
-            "email": "johndoe@yopmail.com",
-            "password": "test_password",
-            "first_name": "John",
-            "last_name": "Doe",
+            "username": "test_user",
+            "email": "test@gmail.com",
+            "first_name": "Test",
+            "last_name": "User",
+            "password": "test_password"
         }
 
         response = client.post(self.endpoint + "register/", data)
