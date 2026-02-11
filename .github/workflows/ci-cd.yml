@@ -39,4 +39,4 @@ jobs:
 
       - name: Running Testss
         run: | 
-          docker compose exec api pytest
+          docker compose exec -T api pytest
