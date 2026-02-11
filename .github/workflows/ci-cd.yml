@@ -39,12 +39,12 @@ jobs:
 
       - name: Running Testss
         run: | 
-          docker compose exec -T api pytest -v --tb=short
+          docker compose exec -T api pytest
 
       - name: check logs
         if: failure()
         run: docker compose logs
 
       - name: run migration
-        run: docker composw exec -T api python manage.py migrate
+        run: docker compose exec -T api python manage.py migrate
           
