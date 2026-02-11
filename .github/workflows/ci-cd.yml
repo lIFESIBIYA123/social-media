@@ -36,7 +36,6 @@ jobs:
       - name: Build containers
         run: | 
           docker compose up -d --build
-          docker compose exec -T api wait-for-it db:5432 -t 60
 
       - name: Running Testss
         run: | 
