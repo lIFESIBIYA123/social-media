@@ -1,23 +1,29 @@
-# pull official base image
-FROM python:3.10-alpine
+# Use a stable, production-friendly base image
+FROM python:3.10-slim
 
-# set work directory
+# Set working directory
 WORKDIR /app
 
-# set environment variables
-ENV PYTHONDONTWRITEBYTECODE 1
-ENV PYTHONUNBUFFERED 1
+# Environment settings
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
 
-# install psycopg2 dependencies
-RUN apk update \
-   && apk add postgresql-dev gcc musl-dev jpeg-dev zlib-dev
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    gcc \
+    libpq-dev \
+    jpeg-dev \
+    zlib1g-dev \
+    && rm -rf /var/lib/apt/lists/*
 
-# install python dependencies
-COPY requirements.txt /app/requirements.txt
-RUN pip install --upgrade pip
-RUN pip install -U setuptools
+# Upgrade pip and install essential build tools
+RUN pip install --upgrade pip setuptools wheel
+
+# Copy dependency file first (better Docker caching)
+COPY requirements.txt .
+
+# Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-
-# copy project
+# Copy project files
 COPY . .
