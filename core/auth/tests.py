@@ -9,7 +9,7 @@ class TestAuthenticationViewSet:
     endpoint = "/api/auth/"
 
     def test_login(self, client, user):
-        data = {"username": user.username, "password": "test_password"}
+        data = {"email": user.email, "password": "test_password"}
         response = client.post(self.endpoint + "login/", data)
 
         assert response.status_code == status.HTTP_200_OK
@@ -32,7 +32,7 @@ class TestAuthenticationViewSet:
         assert response.status_code == status.HTTP_201_CREATED
 
     def test_refresh(self, client, user):
-        data = {"username": user.username, "password": "test_password"}
+        data = {"email": user.email, "password": "test_password"}
         response = client.post(self.endpoint + "login/", data)
 
         assert response.status_code == status.HTTP_200_OK
