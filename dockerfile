@@ -15,8 +15,8 @@ RUN apk update \
 # install python dependencies
 COPY requirements.txt /app/requirements.txt
 RUN pip install --upgrade pip
-RUN pip install --no-cache-dir -U setuptools wheel
 RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --force-reinstall setuptools wheel
 
 # copy project
 COPY . .
