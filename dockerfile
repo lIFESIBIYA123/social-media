@@ -15,10 +15,8 @@ RUN apk update \
 # install python dependencies
 COPY requirements.txt /app/requirements.txt
 RUN pip install --upgrade pip
-RUN apt-get update && apt-get install -y --reinstall python3-pkg-resources
-RUN pip install --no-cache-dir -U setuptools
+RUN pip install --no-cache-dir -U pkg_resources
 RUN pip install --no-cache-dir -r requirements.txt
-
 
 # copy project
 COPY . .
