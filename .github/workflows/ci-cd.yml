@@ -43,7 +43,7 @@ jobs:
 
       - name: Running Testss
         run: | 
-          docker compose exec --rm api pytest
+          docker compose exec api pytest
 
       - name: debug python version
         run: | 
