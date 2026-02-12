@@ -35,7 +35,7 @@ jobs:
 
       - name: Build containers
         run: | 
-          docker compose build
+          docker compose build --no-cache
 
       - name: Build containers
         run: | 
