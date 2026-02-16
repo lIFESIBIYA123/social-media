@@ -20,7 +20,20 @@ services:
     ports:
       - "8000:8000"
     command: >
-      sh -c "python manage.py migrate --no-input && gunicorn CoreRoot.wsgi:application --bind 0.0.0.0:8000"
+      # sh -c "
+      # python manage.py migrate --no-input && gunicorn 
+      # CoreRoot.wsgi:application --bind 0.0.0.0:8000"
+  
+      sh -c "
+      until nc -z db 5432;
+      do
+        echo 'Waiting for PostgreSQL...';
+        sleep 1;
+      done;
+      python manage.py migrate --no-input &&
+      gunicorn CoreRoot.wsgi:application --bind 0.0.0.0:8000
+      "
+      
     volumes:
      - .:/app
      - uploads_volume:/app/uploads
