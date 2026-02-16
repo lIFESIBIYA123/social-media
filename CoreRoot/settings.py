@@ -117,23 +117,11 @@ DATABASES = {
         "PASSWORD": os.getenv("DATABASE_PASSWORD", "Gershom@sibiya123"),
         "HOST": os.environ.get("DATABASE_HOST", "db"),
         "PORT": os.getenv("DATABASE_PORT", "5432"),
-
-        "TEST": {
-            "NAME": "test_coredb",
-        }
     }
 }
 
 # speed up tests
 
-if os.environ.get('ENV') == 'TESTING':
-    DATABASES['default']['TEST']['NAME'] = 'test_coredb'
-
-    #use faster password hasher for tests
-
-    PASSWORD_HASHERS = [
-        'django.contrib.auth.hashers.MD5PasswordHasher',
-    ]
 
 # Password validation
 # https://docs.djangoproject.com/en/4.0/ref/settings/#auth-password-validators
