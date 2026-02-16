@@ -13,7 +13,8 @@ RUN apk update \
    && apk add postgresql-dev gcc musl-dev jpeg-dev zlib-dev
 
 # install python dependencies
-RUN pip install --upgrade pip setuptools wheel
+RUN pip install --upgrade pip wheel \
+   && pip install setuptools==65.5.0
 COPY requirements.txt .
 RUN pip install --upgrade pip
 RUN pip install --no-cache-dir -r requirements.txt
